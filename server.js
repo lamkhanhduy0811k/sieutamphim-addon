@@ -37,7 +37,7 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio',
-  version: '1.6.0',
+  version: '1.9.0',
   name: 'Sưu Tầm Phim',
   description: 'Xem phim HD, Phim bộ, Hoạt hình & Anime nét cao từ SieuTamPhim.pro',
   resources: ['catalog', 'meta', 'stream'],
@@ -156,12 +156,10 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
 
   let metas = await getBloggerFeed(label, searchQuery, skip, 100);
 
-  // Nếu nhãn Anime trên trang ít phim, thử tìm nhãn Hoạt Hình
   if (metas.length === 0 && id === 'stp_anime' && !searchQuery) {
     metas = await getBloggerFeed('Hoạt Hình', '', skip, 100);
   }
 
-  // Backup kho mở rộng khi cuộn hoặc tìm kiếm
   if (metas.length < 20 || searchQuery) {
     try {
       let page = Math.floor(skip / 24) + 1;
