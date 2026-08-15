@@ -37,7 +37,7 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio',
-  version: '3.6.0',
+  version: '3.7.0',
   name: 'Sưu Tầm Phim',
   description: 'Xem đầy đủ Phim Lẻ, Phim Bộ, Anime Nhật, Movie Anime & Hoạt hình Trung Quốc',
   resources: ['catalog', 'meta', 'stream'],
@@ -223,7 +223,7 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
           }));
         const map = new Map();
         [...animeWeb, ...animeApi].forEach(item => map.set(item.id, item));
-        metas = Array., from ? Array.from(map.values()) : [];
+        metas = Array.from(map.values());
       } else {
         metas = animeWeb;
       }
@@ -234,7 +234,7 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
   else if (id === 'stp_anime_movie') {
     try {
       let allItems = [];
-      // Quét sâu qua 25 trang hoạt hình để gom đủ khoảng ~100+ bộ movie chất lượng
+      // Quét sâu qua 25 trang hoạt hình để gom đủ số lượng ~100+ movie
       for (let p = 1; p <= 25; p++) {
         let apiUrl = searchQuery 
           ? `https://phimapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(searchQuery)}&limit=100`
@@ -264,7 +264,7 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
         const isJapan = cStr.includes('nhật bản') || cStr.includes('japan') || cStr.includes('jp');
         if (!isJapan) return;
 
-        // 2. Bắt buộc phải có từ khóa nhận diện Movie / OVA / Chiếu rạp thực thụ để loại bỏ hoàn toàn anime bộ dài tập
+        // 2. Bắt buộc phải có từ khóa nhận diện Movie / OVA / Chiếu rạp thực thụ
         const hasMovieKeyword = nameStr.includes('movie') || originName.includes('movie') || slugStr.includes('movie') ||
                                 nameStr.includes('ova') || originName.includes('ova') || slugStr.includes('ova') ||
                                 nameStr.includes('special') || typeStr.includes('movie') ||
@@ -273,7 +273,7 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
 
         if (!hasMovieKeyword) return;
 
-        // 3. Chặn thêm các từ khóa rác hoặc series dài tập nếu lọt vào
+        // 3. Chặn triệt để các series dài tập nếu lọt vào
         if (nameStr.includes('season') || nameStr.includes('mùa ') || nameStr.includes('phần ') || 
             eStr.includes('12/') || eStr.includes('24/') || eStr.includes('13/')) {
           return;
@@ -473,4 +473,4 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 
 const PORT = process.env.PORT || 7000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-        
+          
