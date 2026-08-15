@@ -37,7 +37,7 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio',
-  version: '3.8.0',
+  version: '3.9.0',
   name: 'Sưu Tầm Phim',
   description: 'Xem đầy đủ Phim Lẻ, Phim Bộ, Anime Nhật, Movie Anime & Hoạt hình Trung Quốc',
   resources: ['catalog', 'meta', 'stream'],
@@ -234,16 +234,11 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
   else if (id === 'stp_anime_movie') {
     try {
       let allItems = [];
-      // Quét sâu đồng thời danh mục hoạt hình và phim lẻ để vét toàn bộ movie anime
-      for (let p = 1; p <= 15; p++) {
+      // Quét sâu qua nhiều trang hoạt hình để gom đủ số lượng 100+ movie
+      for (let p = 1; p <= 25; p++) {
         try {
           const resHh = await axios.get(`https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${p}&limit=50`, { timeout: 5000 });
           if (resHh.data?.data?.items) allItems = allItems.concat(resHh.data.data.items);
-        } catch (e) {}
-
-        try {
-          const resPl = await axios.get(`https://phimapi.com/v1/api/danh-sach/phim-le?page=${p}&limit=50`, { timeout: 5000 });
-          if (resPl.data?.data?.items) allItems = allItems.concat(resPl.data.data.items);
         } catch (e) {}
       }
 
@@ -255,24 +250,28 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
         const nameStr = (item.name || '').toLowerCase();
         const originName = (item.origin_name || '').toLowerCase();
         const slugStr = (item.slug || '').toLowerCase();
-        const typeStr = (item.type || '').toLowerCase();
+        const categoryStr = JSON.stringify(item.category || '').toLowerCase();
+        const contentStr = (item.content || '').toLowerCase();
         const eStr = (item.episode_current || '').toLowerCase();
 
         // 1. Chỉ nhận phim Nhật Bản
         const isJapan = cStr.includes('nhật bản') || cStr.includes('japan') || cStr.includes('jp');
         if (!isJapan) return;
 
-        // 2. Chặn tuyệt đối các series dài tập (có số tập nhiều như 12/12, 24 tập...)
-        if (eStr.includes('12/') || eStr.includes('24/') || eStr.includes('13/') || eStr.includes('25/') || 
-            eStr.includes('tập 12') || eStr.includes('tập 24')) {
-          return;
-        }
-        if (nameStr.includes('season') || nameStr.includes('mùa ') || nameStr.includes('phần ') || slugStr.includes('phan-')) {
+        // 2. Chặn triệt để các phim live-action, phim kinh dị người đóng bị gắn nhầm vào danh mục
+        if (nameStr.includes('lời nguyền') || nameStr.includes('ju-on') || nameStr.includes('narayama') || 
+            categoryStr.includes('live action') || contentStr.includes('live-action')) {
           return;
         }
 
-        // 3. Chấp nhận các phim lẻ, movie, ova hoặc phim có nhãn full/1 tập hoàn tất
-        const isMovie = typeStr === 'movie' || typeStr === 'single' ||
+        // 3. Chặn tuyệt đối các series anime dài tập (12 tập, 24 tập, season...)
+        if (eStr.includes('12/') || eStr.includes('24/') || eStr.includes('13/') || eStr.includes('25/') || 
+            eStr.includes('tập 12') || eStr.includes('tập 24') || nameStr.includes('season') || nameStr.includes('mùa ')) {
+          return;
+        }
+
+        // 4. Bắt buộc phải là phim lẻ / movie / ova / special hoặc có từ khóa chiếu rạp
+        const isMovie = item.type === 'movie' || item.type === 'single' ||
                         nameStr.includes('movie') || originName.includes('movie') || slugStr.includes('movie') ||
                         nameStr.includes('ova') || originName.includes('ova') || slugStr.includes('ova') ||
                         nameStr.includes('special') || nameStr.includes('chieu rap') || slugStr.includes('chieu-rap') ||
