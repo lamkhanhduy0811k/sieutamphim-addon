@@ -14,24 +14,27 @@ app.use((req, res, next) => {
   next();
 });
 
+// Hàm xử lý ảnh Blogspot về độ phân giải gốc nét nhất
+function fixImgUrl(url) {
+  if (!url) return '';
+  let fixed = url
+    .replace(/\/s\d+(-c)?\//, '/s1600/')
+    .replace(/\/w\d+-h\d+[^/]*\//, '/s1600/')
+    .replace(/\/s\d+[^/]*\//, '/s1600/');
+  if (fixed.startsWith('//')) fixed = 'https:' + fixed;
+  return fixed;
+}
+
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio',
-  version: '1.3.0',
+  version: '1.4.0',
   name: 'Sưu Tầm Phim',
-  description: 'Xem phim HD từ SieuTamPhim.pro',
+  description: 'Xem phim HD nét cao từ SieuTamPhim.pro',
   resources: ['catalog', 'meta', 'stream'],
   types: ['movie', 'series'],
   catalogs: [
-    {
-      type: 'movie',
-      id: 'stp_latest_movies',
-      name: 'Sưu Tầm Phim - Phim Lẻ'
-    },
-    {
-      type: 'series',
-      id: 'stp_latest_series',
-      name: 'Sưu Tầm Phim - Phim Bộ'
-    }
+    { type: 'movie', id: 'stp_latest_movies', name: 'Sưu Tầm Phim - Phim Lẻ' },
+    { type: 'series', id: 'stp_latest_series', name: 'Sưu Tầm Phim - Phim Bộ' }
   ],
   idPrefixes: ['stp:', 'phimapi:']
 };
@@ -61,17 +64,13 @@ async function getBloggerFeed(label) {
 
       if (!href || !title) return;
 
-      let poster = entry.media$thumbnail?.url || '';
-      if (!poster && entry.content?.$t) {
+      let rawImg = entry.media$thumbnail?.url || '';
+      if (!rawImg && entry.content?.$t) {
         const imgMatch = entry.content.$t.match(/<img[^>]+src=["']([^"']+)["']/i);
-        if (imgMatch) poster = imgMatch[1];
+        if (imgMatch) rawImg = imgMatch[1];
       }
 
-      if (poster) {
-        poster = poster.replace(/\/s\d+(-c)?\//, '/s1600/');
-        if (poster.startsWith('//')) poster = 'https:' + poster;
-      }
-
+      const posterHD = fixImgUrl(rawImg);
       const cleanPath = href.replace(/^https?:\/\/[^\/]+\//, '').replace(/\.html$/, '');
       const slug = cleanPath.replace(/\//g, '-');
 
@@ -80,7 +79,8 @@ async function getBloggerFeed(label) {
           id: `stp:${slug}`,
           type: label === 'Phim Bộ' ? 'series' : 'movie',
           name: title,
-          poster: poster || 'https://via.placeholder.com/300x450?text=No+Poster',
+          poster: posterHD || 'https://via.placeholder.com/300x450?text=No+Poster',
+          background: posterHD,
           description: 'Sưu Tầm Phim HD'
         });
       }
@@ -97,10 +97,7 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
   const label = type === 'series' ? 'Phim Bộ' : 'Phim Lẻ';
 
   let metas = await getBloggerFeed(label);
-
-  if (metas.length === 0) {
-    metas = await getBloggerFeed(null);
-  }
+  if (metas.length === 0) metas = await getBloggerFeed(null);
 
   if (metas.length === 0) {
     try {
@@ -108,13 +105,18 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
       const apiRes = await axios.get(`https://phimapi.com/v1/api/danh-sach/${category}?page=1`, { timeout: 8000 });
       if (apiRes.data?.data?.items) {
         const cdn = apiRes.data.data.APP_DOMAIN_CDN_IMAGE || 'https://phimimg.com';
-        metas = apiRes.data.data.items.map(item => ({
-          id: `phimapi:${item.slug}`,
-          type: type,
-          name: item.name,
-          poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url || item.thumb_url}`,
-          description: `Phim HD`
-        }));
+        metas = apiRes.data.data.items.map(item => {
+          const p = item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`;
+          const b = item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`;
+          return {
+            id: `phimapi:${item.slug}`,
+            type: type,
+            name: item.name,
+            poster: p,
+            background: b || p,
+            description: `Phim HD`
+          };
+        });
       }
     } catch (e) {}
   }
@@ -122,7 +124,6 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
   res.json({ metas });
 });
 
-// Route Meta (Khai báo danh sách tập cho Nuvio)
 app.get(['/meta/:type/:id.json', '/meta/:type/:id/:extra.json'], async (req, res) => {
   const { id, type } = req.params;
 
@@ -132,6 +133,9 @@ app.get(['/meta/:type/:id.json', '/meta/:type/:id/:extra.json'], async (req, res
       const { data } = await axios.get(`https://phimapi.com/phim/${slug}`, { timeout: 8000 });
       const movie = data?.movie || {};
       const epData = data?.episodes?.[0]?.server_data || [];
+
+      const p = movie.poster_url?.startsWith('http') ? movie.poster_url : `https://phimimg.com/${movie.poster_url}`;
+      const b = movie.thumb_url?.startsWith('http') ? movie.thumb_url : `https://phimimg.com/${movie.thumb_url}`;
 
       const videos = epData.map((ep, idx) => ({
         id: `phimapi:${slug}:${ep.slug}`,
@@ -145,7 +149,8 @@ app.get(['/meta/:type/:id.json', '/meta/:type/:id/:extra.json'], async (req, res
           id: `phimapi:${slug}`,
           type: type,
           name: movie.name || 'Phim',
-          poster: movie.poster_url?.startsWith('http') ? movie.poster_url : `https://phimimg.com/${movie.poster_url}`,
+          poster: p,
+          background: b || p,
           description: movie.content ? movie.content.replace(/<[^>]*>?/gm, '') : '',
           videos: videos.length > 0 ? videos : [{ id: `phimapi:${slug}:full`, title: 'Tập 1', season: 1, episode: 1 }]
         }
@@ -167,8 +172,8 @@ app.get(['/meta/:type/:id.json', '/meta/:type/:id/:extra.json'], async (req, res
     });
     const $ = cheerio.load(data);
     const title = $('h1').text().trim() || $('title').text().trim();
-    let poster = $('.post-body img').first().attr('src') || '';
-    if (poster && poster.startsWith('//')) poster = 'https:' + poster;
+    let rawImg = $('.post-body img').first().attr('src') || '';
+    const posterHD = fixImgUrl(rawImg);
 
     const videos = [];
     $('.list-episode a, .episode-list a, .list-server a, #list-episode a, a.btn-episode, .halim-list-eps a').each((i, el) => {
@@ -198,7 +203,8 @@ app.get(['/meta/:type/:id.json', '/meta/:type/:id/:extra.json'], async (req, res
         id: `stp:${slug}`,
         type: type,
         name: title,
-        poster: poster,
+        poster: posterHD,
+        background: posterHD,
         description: $('meta[name="description"]').attr('content') || title,
         videos: videos
       }
@@ -208,7 +214,6 @@ app.get(['/meta/:type/:id.json', '/meta/:type/:id/:extra.json'], async (req, res
   }
 });
 
-// Route Stream
 app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req, res) => {
   const { id } = req.params;
 
@@ -234,9 +239,7 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
     if (id.includes('::')) {
       const parts = id.split('::');
       const rawUrl = decodeURIComponent(parts[1]);
-      if (rawUrl !== 'full') {
-        targetLink = rawUrl;
-      }
+      if (rawUrl !== 'full') targetLink = rawUrl;
     }
 
     if (!targetLink) {
@@ -267,4 +270,3 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 
 const PORT = process.env.PORT || 7000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-    
