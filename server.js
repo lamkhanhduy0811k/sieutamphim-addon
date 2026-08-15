@@ -26,12 +26,18 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio',
-  version: '16.0.0',
+  version: '18.0.0',
   name: 'Sưu Tầm Phim',
-  description: 'Kho siêu khổng lồ 500+ bộ mỗi danh mục: Phim Lẻ, Phim Bộ, Anime Nhật, Movie Anime & Hoạt hình Trung Quốc',
+  description: 'Kho khổng lồ 500+ bộ mỗi danh mục: Phim Mới Cập Nhật, Phim Lẻ, Phim Bộ, Anime Nhật, Movie Anime & Hoạt hình Trung Quốc',
   resources: ['catalog', 'meta', 'stream'],
   types: ['movie', 'series'],
   catalogs: [
+    {
+      type: 'movie',
+      id: 'stp_new_updates',
+      name: 'Sưu Tầm Phim - Phim Mới Cập Nhật',
+      extra: [{ name: 'search', isRequired: false }, { name: 'skip', isRequired: false }]
+    },
     {
       type: 'movie',
       id: 'stp_latest_movies',
@@ -66,10 +72,11 @@ const MANIFEST = {
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v16.0.0 (Full Mega Cache Fixed)!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v18.0.0 (Added New Updates)!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 const cacheStore = {
+  newUpdates: [],
   movies: [],
   series: [],
   anime: [],
@@ -90,7 +97,6 @@ async function loadAllData() {
   try {
     const cdn = 'https://phimimg.com';
 
-    // Tạo các promise tải song song nhiều trang để gom đủ số lượng lớn
     const moviePromises = [];
     for (let p = 1; p <= 15; p++) {
       moviePromises.push(axios.get(`https://phimapi.com/v1/api/danh-sach/phim-le?page=${p}&limit=50`, { timeout: 5000 }).catch(() => null));
@@ -106,11 +112,26 @@ async function loadAllData() {
       hhPromises.push(axios.get(`https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${p}&limit=50`, { timeout: 5000 }).catch(() => null));
     }
 
-    const [movieRes, seriesRes, hhRes] = await Promise.all([
+    const [newRes, movieRes, seriesRes, hhRes] = await Promise.all([
+      axios.get('https://phimapi.com/danh-sach/phim-moi-cap-nhat?page=1', { timeout: 5000 }).catch(() => null),
       Promise.all(moviePromises),
       Promise.all(seriesPromises),
       Promise.all(hhPromises)
     ]);
+
+    const newUpdatesList = [];
+    if (newRes?.data?.items) {
+      newRes.data.items.forEach(item => {
+        newUpdatesList.push({
+          id: `phimapi:${item.slug}`,
+          type: item.type === 'single' ? 'movie' : 'series',
+          name: item.name,
+          poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
+          background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
+          description: `Cập nhật: ${item.episode_current || 'HD'}`
+        });
+      });
+    }
 
     const allMovies = [];
     const allSeries = [];
@@ -211,6 +232,7 @@ async function loadAllData() {
       }
     });
 
+    cacheStore.newUpdates = newUpdatesList;
     cacheStore.movies = allMovies;
     cacheStore.series = allSeries;
     cacheStore.anime = animeList;
@@ -228,10 +250,30 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
   const skip = parseInt(extra.skip) || 0;
   const limit = 50;
 
+  if (id === 'stp_new_updates') {
+    try {
+      const pageToFetch = Math.floor(skip / 30) + 1;
+      const { data } = await axios.get(`https://phimapi.com/danh-sach/phim-moi-cap-nhat?page=${pageToFetch}`, { timeout: 4000 });
+      if (data?.items) {
+        const cdn = 'https://phimimg.com';
+        const metas = data.items.map(item => ({
+          id: `phimapi:${item.slug}`,
+          type: item.type === 'single' ? 'movie' : 'series',
+          name: item.name,
+          poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
+          background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
+          description: `Cập nhật: ${item.episode_current || 'HD'}`
+        }));
+        return res.json({ metas });
+      }
+    } catch (e) {}
+  }
+
   await loadAllData();
 
   let fullList = [];
-  if (id === 'stp_latest_movies') fullList = cacheStore.movies;
+  if (id === 'stp_new_updates') fullList = cacheStore.newUpdates;
+  else if (id === 'stp_latest_movies') fullList = cacheStore.movies;
   else if (id === 'stp_latest_series') fullList = cacheStore.series;
   else if (id === 'stp_anime') fullList = cacheStore.anime;
   else if (id === 'stp_anime_movie') fullList = cacheStore.animeMovie;
@@ -306,4 +348,4 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 
 const PORT = process.env.PORT || 7000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-                                                      
+            
