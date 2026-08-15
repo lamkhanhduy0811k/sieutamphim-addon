@@ -37,9 +37,9 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio',
-  version: '2.3.0',
+  version: '2.4.0',
   name: 'Sưu Tầm Phim',
-  description: 'Xem phim HD, Phim bộ, Anime Nhật & Hoạt hình 3D Trung Quốc riêng biệt',
+  description: 'Xem đầy đủ Phim Lẻ, Phim Bộ, Anime Nhật & Hoạt hình 3D Trung Quốc',
   resources: ['catalog', 'meta', 'stream'],
   types: ['movie', 'series'],
   catalogs: [
@@ -115,7 +115,7 @@ async function getBloggerFeed(label, query = '', skip = 0, limit = 100) {
       if (slug && !metas.some(m => m.id === `stp:${slug}`)) {
         metas.push({
           id: `stp:${slug}`,
-          type: 'series',
+          type: (label === 'Phim Lẻ') ? 'movie' : 'series',
           name: title,
           poster: posterHD || 'https://via.placeholder.com/300x450?text=No+Poster',
           background: posterHD,
@@ -138,8 +138,62 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
 
   let metas = [];
 
-  // 1. Mục Anime (Nhật Bản): Lọc từ web và nguồn PhimAPI chuẩn Nhật Bản
-  if (id === 'stp_anime') {
+  // 1. Phim Lẻ
+  if (id === 'stp_latest_movies') {
+    metas = await getBloggerFeed('Phim Lẻ', searchQuery, skip, 100);
+    if (metas.length < 20 || searchQuery) {
+      try {
+        let page = Math.floor(skip / 24) + 1;
+        let apiUrl = searchQuery 
+          ? `https://phimapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(searchQuery)}&limit=30`
+          : `https://phimapi.com/v1/api/danh-sach/phim-le?page=${page}&limit=30`;
+        const apiRes = await axios.get(apiUrl, { timeout: 8000 });
+        if (apiRes.data?.data?.items) {
+          const cdn = apiRes.data.data.APP_DOMAIN_CDN_IMAGE || 'https://phimimg.com';
+          const backup = apiRes.data.data.items.map(item => ({
+            id: `phimapi:${item.slug}`,
+            type: 'movie',
+            name: item.name,
+            poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
+            background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
+            description: 'Phim Lẻ HD'
+          }));
+          const map = new Map();
+          [...metas, ...backup].forEach(item => map.set(item.id, item));
+          metas = Array.from(map.values());
+        }
+      } catch (e) {}
+    }
+  } 
+  // 2. Phim Bộ
+  else if (id === 'stp_latest_series') {
+    metas = await getBloggerFeed('Phim Bộ', searchQuery, skip, 100);
+    if (metas.length < 20 || searchQuery) {
+      try {
+        let page = Math.floor(skip / 24) + 1;
+        let apiUrl = searchQuery 
+          ? `https://phimapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(searchQuery)}&limit=30`
+          : `https://phimapi.com/v1/api/danh-sach/phim-bo?page=${page}&limit=30`;
+        const apiRes = await axios.get(apiUrl, { timeout: 8000 });
+        if (apiRes.data?.data?.items) {
+          const cdn = apiRes.data.data.APP_DOMAIN_CDN_IMAGE || 'https://phimimg.com';
+          const backup = apiRes.data.data.items.map(item => ({
+            id: `phimapi:${item.slug}`,
+            type: 'series',
+            name: item.name,
+            poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
+            background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
+            description: 'Phim Bộ HD'
+          }));
+          const map = new Map();
+          [...metas, ...backup].forEach(item => map.set(item.id, item));
+          metas = Array.from(map.values());
+        }
+      } catch (e) {}
+    }
+  }
+  // 3. Anime (Nhật Bản)
+  else if (id === 'stp_anime') {
     let animeWeb = await getBloggerFeed('Anime', searchQuery, skip, 50);
     try {
       let page = Math.floor(skip / 24) + 1;
@@ -152,22 +206,18 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
         const cdn = apiRes.data.data.APP_DOMAIN_CDN_IMAGE || 'https://phimimg.com';
         const animeApi = apiRes.data.data.items
           .filter(item => {
-            if (!item.country) return true; // Nếu không rõ thì nhận diện linh hoạt
+            if (!item.country) return true;
             const cStr = JSON.stringify(item.country).toLowerCase();
             return cStr.includes('nhật bản') || cStr.includes('japan') || cStr.includes('jp');
           })
-          .map(item => {
-            const p = item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`;
-            const b = item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`;
-            return {
-              id: `phimapi:${item.slug}`,
-              type: 'series',
-              name: item.name,
-              poster: p,
-              background: b || p,
-              description: `Anime Nhật Bản HD`
-            };
-          });
+          .map(item => ({
+            id: `phimapi:${item.slug}`,
+            type: 'series',
+            name: item.name,
+            poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
+            background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
+            description: `Anime Nhật Bản HD`
+          }));
         const map = new Map();
         [...animeWeb, ...animeApi].forEach(item => map.set(item.id, item));
         metas = Array.from(map.values());
@@ -178,7 +228,7 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
       metas = animeWeb;
     }
   } 
-  // 2. Mục Hoạt Hình 3D Trung Quốc: Chỉ lọc lấy các phim xuất xứ Trung Quốc
+  // 4. Hoạt Hình 3D Trung Quốc
   else if (id === 'stp_hoathinh') {
     try {
       let page = Math.floor(skip / 24) + 1;
@@ -195,25 +245,16 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
             const cStr = JSON.stringify(item.country).toLowerCase();
             return cStr.includes('trung quốc') || cStr.includes('china') || cStr.includes('cn');
           })
-          .map(item => {
-            const p = item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`;
-            const b = item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`;
-            return {
-              id: `phimapi:${item.slug}`,
-              type: 'series',
-              name: item.name,
-              poster: p,
-              background: b || p,
-              description: `Hoạt hình 3D Trung Quốc HD`
-            };
-          });
+          .map(item => ({
+            id: `phimapi:${item.slug}`,
+            type: 'series',
+            name: item.name,
+            poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
+            background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
+            description: `Hoạt hình 3D Trung Quốc HD`
+          }));
       }
     } catch (e) {}
-  } 
-  // 3. Phim Lẻ / Phim Bộ thông thường
-  else {
-    let label = (type === 'series') ? 'Phim Bộ' : 'Phim Lẻ';
-    metas = await getBloggerFeed(label, searchQuery, skip, 100);
   }
 
   res.json({ metas });
@@ -243,7 +284,7 @@ app.get(['/meta/:type/:id.json', '/meta/:type/:id/:extra.json'], async (req, res
         meta: {
           id: `phimapi:${slug}`,
           type: type,
-          name: movie.name || 'Hoạt Hình',
+          name: movie.name || 'Phim',
           poster: p,
           background: b || p,
           description: movie.content ? movie.content.replace(/<[^>]*>?/gm, '') : '',
@@ -365,4 +406,3 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 
 const PORT = process.env.PORT || 7000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-            
