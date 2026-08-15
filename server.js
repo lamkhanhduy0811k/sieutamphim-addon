@@ -26,7 +26,7 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio',
-  version: '20.0.0',
+  version: '21.0.0',
   name: 'Sưu Tầm Phim',
   description: 'Kho khổng lồ 500+ bộ mỗi danh mục: Phim Mới Cập Nhật, Phim Lẻ, Phim Bộ, Anime Nhật, Movie Anime & Hoạt hình Trung Quốc',
   logo: 'https://i.ibb.co/689Q287/1000004533.jpg',
@@ -73,7 +73,7 @@ const MANIFEST = {
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v20.0.0 (Logo Fixed)!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.0.0 (Dynamic Episode Thumbnails)!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 const cacheStore = {
@@ -296,15 +296,19 @@ app.get(['/meta/:type/:id.json', '/meta/:type/:id/:extra.json'], async (req, res
 
       const p = movie.poster_url?.startsWith('http') ? movie.poster_url : `https://phimimg.com/${movie.poster_url}`;
       const b = movie.thumb_url?.startsWith('http') ? movie.thumb_url : `https://phimimg.com/${movie.thumb_url}`;
-      const thumbImg = b || p;
+      const fallbackImg = b || p;
 
-      const videos = epData.map((ep, idx) => ({
-        id: `phimapi:${slug}:${ep.slug}`,
-        title: ep.name.includes('Tập') ? ep.name : `Tập ${ep.name}`,
-        thumbnail: thumbImg,
-        season: 1,
-        episode: idx + 1
-      }));
+      // Ưu tiên sử dụng ảnh riêng của từng tập nếu API cung cấp (như link_image, thumb, poster...), nếu không sẽ dùng ảnh thumb chung của phim làm nền chính
+      const videos = epData.map((ep, idx) => {
+        const epImg = ep.poster_url || ep.thumb || ep.link_image || fallbackImg;
+        return {
+          id: `phimapi:${slug}:${ep.slug}`,
+          title: ep.name.includes('Tập') ? ep.name : `Tập ${ep.name}`,
+          thumbnail: epImg.startsWith('http') ? epImg : `https://phimimg.com/${epImg}`,
+          season: 1,
+          episode: idx + 1
+        };
+      });
 
       return res.json({
         meta: {
@@ -312,9 +316,9 @@ app.get(['/meta/:type/:id.json', '/meta/:type/:id/:extra.json'], async (req, res
           type: type,
           name: movie.name || 'Phim',
           poster: p,
-          background: thumbImg,
+          background: fallbackImg,
           description: movie.content ? movie.content.replace(/<[^>]*>?/gm, '') : '',
-          videos: videos.length > 0 ? videos : [{ id: `phimapi:${slug}:full`, title: 'Tập 1', thumbnail: thumbImg, season: 1, episode: 1 }]
+          videos: videos.length > 0 ? videos : [{ id: `phimapi:${slug}:full`, title: 'Tập 1', thumbnail: fallbackImg, season: 1, episode: 1 }]
         }
       });
     } catch (e) {
@@ -349,4 +353,4 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 
 const PORT = process.env.PORT || 7000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-                  
+                
