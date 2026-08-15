@@ -37,7 +37,7 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio',
-  version: '3.5.0',
+  version: '3.6.0',
   name: 'Sưu Tầm Phim',
   description: 'Xem đầy đủ Phim Lẻ, Phim Bộ, Anime Nhật, Movie Anime & Hoạt hình Trung Quốc',
   resources: ['catalog', 'meta', 'stream'],
@@ -223,7 +223,7 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
           }));
         const map = new Map();
         [...animeWeb, ...animeApi].forEach(item => map.set(item.id, item));
-        metas = Array.from(map.values());
+        metas = Array., from ? Array.from(map.values()) : [];
       } else {
         metas = animeWeb;
       }
@@ -234,8 +234,8 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
   else if (id === 'stp_anime_movie') {
     try {
       let allItems = [];
-      // Quét sâu qua nhiều trang hoạt hình để gom đủ số lượng lớn
-      for (let p = 1; p <= 15; p++) {
+      // Quét sâu qua 25 trang hoạt hình để gom đủ khoảng ~100+ bộ movie chất lượng
+      for (let p = 1; p <= 25; p++) {
         let apiUrl = searchQuery 
           ? `https://phimapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(searchQuery)}&limit=100`
           : `https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${p}&limit=50`;
@@ -249,58 +249,44 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
         if (searchQuery) break;
       }
 
-      // Quét thêm danh mục phim lẻ để vét các movie anime được phân loại vào mục phim lẻ
-      for (let p = 1; p <= 5; p++) {
-        try {
-          const apiRes2 = await axios.get(`https://phimapi.com/v1/api/danh-sach/phim-le?page=${p}&limit=50`, { timeout: 5000 });
-          if (apiRes2.data?.data?.items) {
-            const jpMovies = apiRes2.data.data.items.filter(item => {
-              const cStr = JSON.stringify(item.country || '').toLowerCase();
-              return cStr.includes('nhật bản') || cStr.includes('japan') || cStr.includes('jp');
-            });
-            allItems = allItems.concat(jpMovies);
-          }
-        } catch(e) {}
-      }
-
       const cdn = 'https://phimimg.com';
       const map = new Map();
 
       allItems.forEach(item => {
         const cStr = JSON.stringify(item.country || '').toLowerCase();
         const nameStr = (item.name || '').toLowerCase();
+        const originName = (item.origin_name || '').toLowerCase();
         const slugStr = (item.slug || '').toLowerCase();
         const typeStr = (item.type || '').toLowerCase();
         const eStr = (item.episode_current || '').toLowerCase();
 
+        // 1. Chỉ nhận hoạt hình Nhật Bản
         const isJapan = cStr.includes('nhật bản') || cStr.includes('japan') || cStr.includes('jp');
         if (!isJapan) return;
 
-        // Chặn tuyệt đối các series dài tập (có số tập nhiều như 12/12, 24 tập...)
-        if (eStr.includes('12/') || eStr.includes('24/') || eStr.includes('13/') || eStr.includes('25/') || 
-            eStr.includes('tập 12') || eStr.includes('tập 24') || eStr.includes('tập 02')) {
-          return;
-        }
-        if (nameStr.includes('season') || nameStr.includes('mùa ') || nameStr.includes('phần ') || slugStr.includes('phan-')) {
+        // 2. Bắt buộc phải có từ khóa nhận diện Movie / OVA / Chiếu rạp thực thụ để loại bỏ hoàn toàn anime bộ dài tập
+        const hasMovieKeyword = nameStr.includes('movie') || originName.includes('movie') || slugStr.includes('movie') ||
+                                nameStr.includes('ova') || originName.includes('ova') || slugStr.includes('ova') ||
+                                nameStr.includes('special') || typeStr.includes('movie') ||
+                                nameStr.includes('chieu rap') || slugStr.includes('chieu-rap') ||
+                                nameStr.includes('the final') || nameStr.includes('the movie');
+
+        if (!hasMovieKeyword) return;
+
+        // 3. Chặn thêm các từ khóa rác hoặc series dài tập nếu lọt vào
+        if (nameStr.includes('season') || nameStr.includes('mùa ') || nameStr.includes('phần ') || 
+            eStr.includes('12/') || eStr.includes('24/') || eStr.includes('13/')) {
           return;
         }
 
-        // Chấp nhận tất cả các phim đơn (single/movie) hoặc phim có thời lượng trọn gói
-        const isSingleOrMovie = typeStr === 'single' || typeStr === 'movie' || 
-                                eStr.includes('full') || eStr.includes('1 tập') || eStr.includes('hoàn tất') || 
-                                eStr.includes('1/1') || eStr.includes('tập 1') || 
-                                !eStr.includes('/');
-
-        if (isSingleOrMovie) {
-          map.set(item.slug, {
-            id: `phimapi:${item.slug}`,
-            type: 'movie',
-            name: item.name,
-            poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
-            background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
-            description: `Movie Anime Chiếu Rạp HD`
-          });
-        }
+        map.set(item.slug, {
+          id: `phimapi:${item.slug}`,
+          type: 'movie',
+          name: item.name,
+          poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
+          background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
+          description: `Movie Anime Chiếu Rạp HD`
+        });
       });
 
       metas = Array.from(map.values());
