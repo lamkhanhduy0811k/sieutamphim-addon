@@ -37,7 +37,7 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio',
-  version: '2.9.0',
+  version: '3.0.0',
   name: 'Sưu Tầm Phim',
   description: 'Xem đầy đủ Phim Lẻ, Phim Bộ, Anime Nhật, Movie Anime & Hoạt hình Trung Quốc',
   resources: ['catalog', 'meta', 'stream'],
@@ -233,31 +233,54 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
   }
   else if (id === 'stp_anime_movie') {
     try {
-      let page = Math.floor(skip / 24) + 1;
-      let apiUrl = searchQuery 
-        ? `https://phimapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(searchQuery)}&limit=150`
-        : `https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${page}&limit=150`;
+      // Quét nhiều trang để gom đủ khoảng 100+ movie anime chuẩn xác
+      let allItems = [];
+      for (let p = 1; p <= 3; p++) {
+        let apiUrl = searchQuery 
+          ? `https://phimapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(searchQuery)}&limit=100`
+          : `https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${p}&limit=100`;
 
-      const apiRes = await axios.get(apiUrl, { timeout: 8000 });
-      if (apiRes.data?.data?.items) {
-        const cdn = apiRes.data.data.APP_DOMAIN_CDN_IMAGE || 'https://phimimg.com';
-        metas = apiRes.data.data.items
-          .filter(item => {
-            const cStr = JSON.stringify(item.country || '').toLowerCase();
-            const eStr = (item.episode_current || '').toLowerCase();
-            const isJapan = cStr.includes('nhật bản') || cStr.includes('japan') || cStr.includes('jp');
-            const isShortOrMovie = eStr.includes('full') || eStr.includes('1/1') || eStr.includes('hoàn tất') || eStr.includes('tập 1');
-            return isJapan && isShortOrMovie;
-          })
-          .map(item => ({
-            id: `phimapi:${item.slug}`,
-            type: 'movie',
-            name: item.name,
-            poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
-            background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
-            description: `Movie Anime Chiếu Rạp HD`
-          }));
+        const apiRes = await axios.get(apiUrl, { timeout: 8000 });
+        if (apiRes.data?.data?.items) {
+          allItems = allItems.concat(apiRes.data.data.items);
+        }
+        if (searchQuery) break;
       }
+
+      const cdn = 'https://phimimg.com';
+      metas = allItems
+        .filter(item => {
+          const cStr = JSON.stringify(item.country || '').toLowerCase();
+          const nameStr = (item.name || '').toLowerCase();
+          const originName = (item.origin_name || '').toLowerCase();
+          const slugStr = (item.slug || '').toLowerCase();
+          const typeStr = (item.type || '').toLowerCase();
+          const eStr = (item.episode_current || '').toLowerCase();
+
+          const isJapan = cStr.includes('nhật bản') || cStr.includes('japan') || cStr.includes('jp');
+          if (!isJapan) return false;
+
+          // Điều kiện lọc nghiêm ngặt để đảm bảo là Movie / OVA / Phim lẻ chiếu rạp
+          const isMovieKeyword = nameStr.includes('movie') || originName.includes('movie') || slugStr.includes('movie') ||
+                                 nameStr.includes('ova') || originName.includes('ova') || slugStr.includes('ova') ||
+                                 nameStr.includes('special') || typeStr.includes('movie') ||
+                                 eStr.includes('full') || eStr.includes('1 tập') || eStr.includes('hoàn tất');
+
+          // Loại trừ các bộ dài tập lọt lưới
+          const isNotSeries = !nameStr.includes('season') && !nameStr.includes('mùa') && 
+                              !nameStr.includes('phần') && !slugStr.includes('phan-') &&
+                              !eStr.includes('/') && !eStr.includes('tập 2') && !eStr.includes('tập 02');
+
+          return isMovieKeyword && isNotSeries;
+        })
+        .map(item => ({
+          id: `phimapi:${item.slug}`,
+          type: 'movie',
+          name: item.name,
+          poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
+          background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
+          description: `Movie Anime Chiếu Rạp HD`
+        }));
     } catch (e) {}
   }
   else if (id === 'stp_hoathinh') {
@@ -441,4 +464,4 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 
 const PORT = process.env.PORT || 7000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-        
+            
