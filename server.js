@@ -37,9 +37,9 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio',
-  version: '2.4.0',
+  version: '2.5.0',
   name: 'Sưu Tầm Phim',
-  description: 'Xem đầy đủ Phim Lẻ, Phim Bộ, Anime Nhật & Hoạt hình 3D Trung Quốc',
+  description: 'Xem đầy đủ Phim Lẻ, Phim Bộ, Anime Nhật & Hoạt hình Trung Quốc phong phú',
   resources: ['catalog', 'meta', 'stream'],
   types: ['movie', 'series'],
   catalogs: [
@@ -145,8 +145,8 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
       try {
         let page = Math.floor(skip / 24) + 1;
         let apiUrl = searchQuery 
-          ? `https://phimapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(searchQuery)}&limit=30`
-          : `https://phimapi.com/v1/api/danh-sach/phim-le?page=${page}&limit=30`;
+          ? `https://phimapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(searchQuery)}&limit=50`
+          : `https://phimapi.com/v1/api/danh-sach/phim-le?page=${page}&limit=50`;
         const apiRes = await axios.get(apiUrl, { timeout: 8000 });
         if (apiRes.data?.data?.items) {
           const cdn = apiRes.data.data.APP_DOMAIN_CDN_IMAGE || 'https://phimimg.com';
@@ -172,8 +172,8 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
       try {
         let page = Math.floor(skip / 24) + 1;
         let apiUrl = searchQuery 
-          ? `https://phimapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(searchQuery)}&limit=30`
-          : `https://phimapi.com/v1/api/danh-sach/phim-bo?page=${page}&limit=30`;
+          ? `https://phimapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(searchQuery)}&limit=50`
+          : `https://phimapi.com/v1/api/danh-sach/phim-bo?page=${page}&limit=50`;
         const apiRes = await axios.get(apiUrl, { timeout: 8000 });
         if (apiRes.data?.data?.items) {
           const cdn = apiRes.data.data.APP_DOMAIN_CDN_IMAGE || 'https://phimimg.com';
@@ -198,8 +198,8 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
     try {
       let page = Math.floor(skip / 24) + 1;
       let apiUrl = searchQuery 
-        ? `https://phimapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(searchQuery)}&limit=50`
-        : `https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${page}&limit=50`;
+        ? `https://phimapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(searchQuery)}&limit=100`
+        : `https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${page}&limit=100`;
 
       const apiRes = await axios.get(apiUrl, { timeout: 8000 });
       if (apiRes.data?.data?.items) {
@@ -228,22 +228,23 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
       metas = animeWeb;
     }
   } 
-  // 4. Hoạt Hình 3D Trung Quốc
+  // 4. Hoạt Hình 3D Trung Quốc (Lấy kho lớn và loại bỏ phim Nhật để lấy trọn bộ Trung Quốc)
   else if (id === 'stp_hoathinh') {
     try {
       let page = Math.floor(skip / 24) + 1;
       let apiUrl = searchQuery 
-        ? `https://phimapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(searchQuery)}&limit=50`
-        : `https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${page}&limit=50`;
+        ? `https://phimapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(searchQuery)}&limit=100`
+        : `https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${page}&limit=100`;
 
       const apiRes = await axios.get(apiUrl, { timeout: 8000 });
       if (apiRes.data?.data?.items) {
         const cdn = apiRes.data.data.APP_DOMAIN_CDN_IMAGE || 'https://phimimg.com';
         metas = apiRes.data.data.items
           .filter(item => {
-            if (!item.country) return false;
-            const cStr = JSON.stringify(item.country).toLowerCase();
-            return cStr.includes('trung quốc') || cStr.includes('china') || cStr.includes('cn');
+            const cStr = JSON.stringify(item.country || '').toLowerCase();
+            // Lọc lấy Trung Quốc hoặc các phim hoạt hình chung không phải của Nhật
+            const isJapan = cStr.includes('nhật bản') || cStr.includes('japan') || cStr.includes('jp');
+            return !isJapan;
           })
           .map(item => ({
             id: `phimapi:${item.slug}`,
@@ -251,7 +252,7 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
             name: item.name,
             poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
             background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
-            description: `Hoạt hình 3D Trung Quốc HD`
+            description: `Hoạt hình Trung Quốc HD`
           }));
       }
     } catch (e) {}
@@ -406,3 +407,4 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 
 const PORT = process.env.PORT || 7000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+              
