@@ -37,9 +37,9 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio',
-  version: '2.0.0',
+  version: '2.2.0',
   name: 'Sưu Tầm Phim',
-  description: 'Xem phim HD, Phim bộ, Anime & Hoạt hình riêng biệt',
+  description: 'Xem phim HD, Phim bộ, Anime & Hoạt hình 3D Trung Quốc',
   resources: ['catalog', 'meta', 'stream'],
   types: ['movie', 'series'],
   catalogs: [
@@ -64,7 +64,7 @@ const MANIFEST = {
     {
       type: 'series',
       id: 'stp_hoathinh',
-      name: 'Sưu Tầm Phim - Hoạt Hình Trung Quốc',
+      name: 'Sưu Tầm Phim - Hoạt Hình 3D Trung Quốc',
       extra: [{ name: 'search', isRequired: false }, { name: 'skip', isRequired: false }]
     }
   ],
@@ -138,11 +138,18 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
 
   let metas = [];
 
-  // 1. Mục Anime: chỉ lấy nhãn Anime thuần túy từ web
+  // 1. Mục Anime (Nhật Bản): Lấy từ nhãn Anime trên web
   if (id === 'stp_anime') {
     metas = await getBloggerFeed('Anime', searchQuery, skip, 100);
+    // Dự phòng nếu nhãn Anime ít, lấy thêm nhãn Hoạt hình chung của web
+    if (metas.length < 10 && !searchQuery) {
+      const extraList = await getBloggerFeed('Hoạt Hình', '', skip, 50);
+      const map = new Map();
+      [...metas, ...extraList].forEach(item => map.set(item.id, item));
+      metas = Array.from(map.values());
+    }
   } 
-  // 2. Mục Hoạt Hình Trung Quốc: lấy riêng từ PhimAPI chuyên hoạt hình
+  // 2. Mục Hoạt Hình 3D Trung Quốc: Lấy chuyên biệt từ PhimAPI nguồn Hoạt Hình 3D/Trung Quốc
   else if (id === 'stp_hoathinh') {
     try {
       let page = Math.floor(skip / 24) + 1;
@@ -162,7 +169,7 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
             name: item.name,
             poster: p,
             background: b || p,
-            description: `Hoạt hình Trung Quốc HD`
+            description: `Hoạt hình 3D Trung Quốc HD`
           };
         });
       }
@@ -201,7 +208,7 @@ app.get(['/meta/:type/:id.json', '/meta/:type/:id/:extra.json'], async (req, res
         meta: {
           id: `phimapi:${slug}`,
           type: type,
-          name: movie.name || 'Hoạt Hình',
+          name: movie.name || 'Hoạt Hình Trung Quốc',
           poster: p,
           background: b || p,
           description: movie.content ? movie.content.replace(/<[^>]*>?/gm, '') : '',
@@ -323,4 +330,4 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 
 const PORT = process.env.PORT || 7000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-      
+        
