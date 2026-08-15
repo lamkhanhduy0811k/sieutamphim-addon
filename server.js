@@ -26,9 +26,9 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio',
-  version: '17.0.0',
+  version: '16.0.0',
   name: 'Sưu Tầm Phim',
-  description: 'Kho khổng lồ 500+ bộ mỗi danh mục: Phim Lẻ, Phim Bộ, Anime Nhật, Movie Anime & Hoạt hình Trung Quốc',
+  description: 'Kho siêu khổng lồ 500+ bộ mỗi danh mục: Phim Lẻ, Phim Bộ, Anime Nhật, Movie Anime & Hoạt hình Trung Quốc',
   resources: ['catalog', 'meta', 'stream'],
   types: ['movie', 'series'],
   catalogs: [
@@ -66,7 +66,7 @@ const MANIFEST = {
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v17.0.0 (Massive 500+ Unlocked)!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v16.0.0 (Full Mega Cache Fixed)!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 const cacheStore = {
@@ -80,7 +80,9 @@ const cacheStore = {
 
 const strictBlacklist = [
   'mặt cười', 'laughing man', 'stand alone complex', 's.a.c', 
-  'lord el-melloi', 'rail zeppelin', 'case files'
+  'lord el-melloi', 'rail zeppelin', 'case files', 'grand blue', 
+  '100 cô bạn gái', 'yozakura', 'hell mode', 'cậu và tớ', 'nữ hùng',
+  'oakhaven', 'phần 2', 'phần 3', 'season 2', 'season 3', 'ss2', 'ss3'
 ];
 
 async function loadAllData() {
@@ -88,19 +90,20 @@ async function loadAllData() {
   try {
     const cdn = 'https://phimimg.com';
 
+    // Tạo các promise tải song song nhiều trang để gom đủ số lượng lớn
     const moviePromises = [];
-    for (let p = 1; p <= 20; p++) {
-      moviePromises.push(axios.get(`https://phimapi.com/v1/api/danh-sach/phim-le?page=${p}&limit=50`, { timeout: 6000 }).catch(() => null));
+    for (let p = 1; p <= 15; p++) {
+      moviePromises.push(axios.get(`https://phimapi.com/v1/api/danh-sach/phim-le?page=${p}&limit=50`, { timeout: 5000 }).catch(() => null));
     }
 
     const seriesPromises = [];
-    for (let p = 1; p <= 20; p++) {
-      seriesPromises.push(axios.get(`https://phimapi.com/v1/api/danh-sach/phim-bo?page=${p}&limit=60`, { timeout: 6000 }).catch(() => null));
+    for (let p = 1; p <= 15; p++) {
+      seriesPromises.push(axios.get(`https://phimapi.com/v1/api/danh-sach/phim-bo?page=${p}&limit=50`, { timeout: 5000 }).catch(() => null));
     }
 
     const hhPromises = [];
-    for (let p = 1; p <= 50; p++) {
-      hhPromises.push(axios.get(`https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${p}&limit=60`, { timeout: 6000 }).catch(() => null));
+    for (let p = 1; p <= 25; p++) {
+      hhPromises.push(axios.get(`https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${p}&limit=50`, { timeout: 5000 }).catch(() => null));
     }
 
     const [movieRes, seriesRes, hhRes] = await Promise.all([
@@ -154,8 +157,9 @@ async function loadAllData() {
           const slugStr = (item.slug || '').toLowerCase();
           const categoryStr = JSON.stringify(item.category || '').toLowerCase();
           const contentStr = (item.content || '').toLowerCase();
+          const eStr = (item.episode_current || '').toLowerCase();
 
-          const isJapan = cStr.includes('nhật bản') || cStr.includes('japan') || cStr.includes('jp') || cStr.includes('nhật');
+          const isJapan = cStr.includes('nhật bản') || cStr.includes('japan') || cStr.includes('jp');
 
           if (isJapan) {
             animeList.push({
@@ -170,7 +174,10 @@ async function loadAllData() {
             const hasBlacklistedWord = strictBlacklist.some(kw => nameStr.includes(kw) || slugStr.includes(kw));
             if (hasBlacklistedWord) return;
 
-            if (categoryStr.includes('live action') || contentStr.includes('live-action')) {
+            if (nameStr.includes('lời nguyền') || nameStr.includes('ju-on') || nameStr.includes('narayama') || 
+                categoryStr.includes('live action') || contentStr.includes('live-action') ||
+                nameStr.includes('phần') || nameStr.includes('season') || nameStr.includes('mùa') ||
+                eStr.includes('tập') || eStr.includes('/')) {
               return;
             }
 
@@ -178,10 +185,7 @@ async function loadAllData() {
                             nameStr.includes('movie') || originName.includes('movie') || slugStr.includes('movie') ||
                             nameStr.includes('ova') || originName.includes('ova') || slugStr.includes('ova') ||
                             nameStr.includes('special') || nameStr.includes('chieu rap') || slugStr.includes('chieu-rap') ||
-                            item.episode_current?.toLowerCase().includes('full') ||
-                            item.episode_current?.toLowerCase().includes('1 tập') ||
-                            item.episode_current?.toLowerCase().includes('hoàn tất') ||
-                            item.episode_current?.toLowerCase().includes('1/1');
+                            eStr.includes('full') || eStr.includes('1 tập') || eStr.includes('hoàn tất') || eStr.includes('1/1');
 
             if (isMovie) {
               animeMovieList.push({
@@ -302,4 +306,4 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 
 const PORT = process.env.PORT || 7000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-              
+                                                      
