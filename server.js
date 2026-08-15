@@ -26,50 +26,57 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio',
-  version: '11.0.0',
+  version: '12.0.0',
   name: 'Sưu Tầm Phim',
-  description: 'Kho siêu khổng lồ 1000+ bộ mỗi danh mục: Phim Lẻ, Phim Bộ, Anime Nhật, Movie Anime & Hoạt hình Trung Quốc',
+  description: 'Kho tối ưu 500 bộ mỗi danh mục: Phim Lẻ, Phim Bộ, Anime Nhật, Movie Anime & Hoạt hình Trung Quốc',
   resources: ['catalog', 'meta', 'stream'],
   types: ['movie', 'series'],
   catalogs: [
     {
       type: 'movie',
       id: 'stp_latest_movies',
-      name: 'Sưu Tầm Phim - Phim Lẻ (1000+ Bộ)',
+      name: 'Sưu Tầm Phim - Phim Lẻ (500 Bộ)',
       extra: [{ name: 'search', isRequired: false }, { name: 'skip', isRequired: false }]
     },
     {
       type: 'series',
       id: 'stp_latest_series',
-      name: 'Sưu Tầm Phim - Phim Bộ (1000+ Bộ)',
+      name: 'Sưu Tầm Phim - Phim Bộ (500 Bộ)',
       extra: [{ name: 'search', isRequired: false }, { name: 'skip', isRequired: false }]
     },
     {
       type: 'series',
       id: 'stp_anime',
-      name: 'Sưu Tầm Phim - Anime Nhật Bản (1000+ Bộ)',
+      name: 'Sưu Tầm Phim - Anime Nhật Bản (500 Bộ)',
       extra: [{ name: 'search', isRequired: false }, { name: 'skip', isRequired: false }]
     },
     {
       type: 'movie',
       id: 'stp_anime_movie',
-      name: 'Sưu Tầm Phim - Movie Anime Chiếu Rạp (1000+ Bộ)',
+      name: 'Sưu Tầm Phim - Movie Anime Chiếu Rạp (500 Bộ)',
       extra: [{ name: 'search', isRequired: false }, { name: 'skip', isRequired: false }]
     },
     {
       type: 'series',
       id: 'stp_hoathinh',
-      name: 'Sưu Tầm Phim - Hoạt Hình 3D Trung Quốc (1000+ Bộ)',
+      name: 'Sưu Tầm Phim - Hoạt Hình 3D Trung Quốc (500 Bộ)',
       extra: [{ name: 'search', isRequired: false }, { name: 'skip', isRequired: false }]
     }
   ],
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v11.0.0 (Fast Paginated Mega Scale)!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v12.0.0 (Optimized 500 Scale)!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 const cdn = 'https://phimimg.com';
+
+const strictBlacklist = [
+  'mặt cười', 'laughing man', 'stand alone complex', 's.a.c', 
+  'lord el-melloi', 'rail zeppelin', 'case files', 'grand blue', 
+  '100 cô bạn gái', 'yozakura', 'hell mode', 'cậu và tớ', 'nữ hùng',
+  'oakhaven', 'phần 2', 'phần 3', 'season 2', 'season 3', 'ss2', 'ss3'
+];
 
 async function fetchCatalogData(catalogId, page) {
   let items = [];
@@ -99,7 +106,6 @@ async function fetchCatalogData(catalogId, page) {
         }));
       }
     } else {
-      // Đối với hoạt hình, anime và movie anime, ta quét kho hoạt hình theo từng trang cụ thể
       const { data } = await axios.get(`https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${page}&limit=50`, { timeout: 5000 });
       if (data?.data?.items) {
         const rawHh = data.data.items;
@@ -127,6 +133,9 @@ async function fetchCatalogData(catalogId, page) {
               background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
               description: 'Anime Nhật Bản HD'
             });
+
+            const hasBlacklistedWord = strictBlacklist.some(kw => nameStr.includes(kw) || slugStr.includes(kw));
+            if (hasBlacklistedWord) return;
 
             if (nameStr.includes('lời nguyền') || nameStr.includes('ju-on') || nameStr.includes('narayama') || 
                 categoryStr.includes('live action') || contentStr.includes('live-action') ||
@@ -178,17 +187,14 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
   const { id, extra: extraStr } = req.params;
   const extra = parseExtra(extraStr);
   const skip = parseInt(extra.skip) || 0;
-  
-  // Tính toán trang dựa trên thông số skip của Stremio/Nuvio (mỗi trang khoảng 50 phim)
   const pageToFetch = Math.floor(skip / 50) + 1;
-  let metas = await fetchCatalogData(id, pageToFetch);
 
-  // Nếu trang hiện tại không đủ hoặc cần thiết, quét gộp thêm 1 trang kế tiếp để đảm bảo kho phim luôn đạt mốc 1000+ phong phú
-  if (metas.length < 20 && pageToFetch > 1) {
-    const extraMetas = await fetchCatalogData(id, pageToFetch + 1);
-    metas = metas.concat(extraMetas);
+  // Giới hạn tối đa 10 trang tương ứng mốc 500 bộ cho mỗi danh mục
+  if (pageToFetch > 10) {
+    return res.json({ metas: [] });
   }
 
+  let metas = await fetchCatalogData(id, pageToFetch);
   res.json({ metas });
 });
 
@@ -257,4 +263,4 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 
 const PORT = process.env.PORT || 7000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-    
+        
