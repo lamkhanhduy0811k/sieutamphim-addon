@@ -37,9 +37,9 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio',
-  version: '1.9.0',
+  version: '2.0.0',
   name: 'Sưu Tầm Phim',
-  description: 'Xem phim HD, Phim bộ, Hoạt hình & Anime nét cao từ SieuTamPhim.pro',
+  description: 'Xem phim HD, Phim bộ, Anime & Hoạt hình riêng biệt',
   resources: ['catalog', 'meta', 'stream'],
   types: ['movie', 'series'],
   catalogs: [
@@ -47,37 +47,25 @@ const MANIFEST = {
       type: 'movie',
       id: 'stp_latest_movies',
       name: 'Sưu Tầm Phim - Phim Lẻ',
-      extra: [
-        { name: 'search', isRequired: false },
-        { name: 'skip', isRequired: false }
-      ]
+      extra: [{ name: 'search', isRequired: false }, { name: 'skip', isRequired: false }]
     },
     {
       type: 'series',
       id: 'stp_latest_series',
       name: 'Sưu Tầm Phim - Phim Bộ',
-      extra: [
-        { name: 'search', isRequired: false },
-        { name: 'skip', isRequired: false }
-      ]
+      extra: [{ name: 'search', isRequired: false }, { name: 'skip', isRequired: false }]
     },
     {
       type: 'series',
       id: 'stp_anime',
-      name: 'Sưu Tầm Phim - Anime',
-      extra: [
-        { name: 'search', isRequired: false },
-        { name: 'skip', isRequired: false }
-      ]
+      name: 'Sưu Tầm Phim - Anime (Nhật Bản)',
+      extra: [{ name: 'search', isRequired: false }, { name: 'skip', isRequired: false }]
     },
     {
       type: 'series',
       id: 'stp_hoathinh',
-      name: 'Sưu Tầm Phim - Hoạt Hình',
-      extra: [
-        { name: 'search', isRequired: false },
-        { name: 'skip', isRequired: false }
-      ]
+      name: 'Sưu Tầm Phim - Hoạt Hình Trung Quốc',
+      extra: [{ name: 'search', isRequired: false }, { name: 'skip', isRequired: false }]
     }
   ],
   idPrefixes: ['stp:', 'phimapi:']
@@ -127,7 +115,7 @@ async function getBloggerFeed(label, query = '', skip = 0, limit = 100) {
       if (slug && !metas.some(m => m.id === `stp:${slug}`)) {
         metas.push({
           id: `stp:${slug}`,
-          type: (label === 'Phim Bộ' || label === 'Hoạt Hình' || label === 'Anime') ? 'series' : 'movie',
+          type: 'series',
           name: title,
           poster: posterHD || 'https://via.placeholder.com/300x450?text=No+Poster',
           background: posterHD,
@@ -148,52 +136,42 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
   const searchQuery = extra.search || '';
   const skip = parseInt(extra.skip) || 0;
 
-  let label = null;
-  if (id === 'stp_anime') label = 'Anime';
-  else if (id === 'stp_hoathinh') label = 'Hoạt Hình';
-  else if (type === 'series') label = 'Phim Bộ';
-  else label = 'Phim Lẻ';
+  let metas = [];
 
-  let metas = await getBloggerFeed(label, searchQuery, skip, 100);
-
-  if (metas.length === 0 && id === 'stp_anime' && !searchQuery) {
-    metas = await getBloggerFeed('Hoạt Hình', '', skip, 100);
-  }
-
-  if (metas.length < 20 || searchQuery) {
+  // 1. Mục Anime: chỉ lấy nhãn Anime thuần túy từ web
+  if (id === 'stp_anime') {
+    metas = await getBloggerFeed('Anime', searchQuery, skip, 100);
+  } 
+  // 2. Mục Hoạt Hình Trung Quốc: lấy riêng từ PhimAPI chuyên hoạt hình
+  else if (id === 'stp_hoathinh') {
     try {
       let page = Math.floor(skip / 24) + 1;
-      let apiCategory = 'hoat-hinh';
-      if (type === 'movie') apiCategory = 'phim-le';
-      else if (type === 'series' && id === 'stp_latest_series') apiCategory = 'phim-bo';
-
       let apiUrl = searchQuery 
-        ? `https://phimapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(searchQuery)}&limit=30`
-        : `https://phimapi.com/v1/api/danh-sach/${apiCategory}?page=${page}&limit=30`;
+        ? `https://phimapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(searchQuery)}&limit=40`
+        : `https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${page}&limit=40`;
 
       const apiRes = await axios.get(apiUrl, { timeout: 8000 });
       if (apiRes.data?.data?.items) {
         const cdn = apiRes.data.data.APP_DOMAIN_CDN_IMAGE || 'https://phimimg.com';
-        const backupMetas = apiRes.data.data.items.map(item => {
+        metas = apiRes.data.data.items.map(item => {
           const p = item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`;
           const b = item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`;
           return {
             id: `phimapi:${item.slug}`,
-            type: type,
+            type: 'series',
             name: item.name,
             poster: p,
             background: b || p,
-            description: `Anime / Hoạt hình HD`
+            description: `Hoạt hình Trung Quốc HD`
           };
-        });
-
-        backupMetas.forEach(bm => {
-          if (!metas.some(m => m.name.toLowerCase() === bm.name.toLowerCase() || m.id === bm.id)) {
-            metas.push(bm);
-          }
         });
       }
     } catch (e) {}
+  } 
+  // 3. Phim Lẻ / Phim Bộ thông thường
+  else {
+    let label = (type === 'series') ? 'Phim Bộ' : 'Phim Lẻ';
+    metas = await getBloggerFeed(label, searchQuery, skip, 100);
   }
 
   res.json({ metas });
@@ -223,7 +201,7 @@ app.get(['/meta/:type/:id.json', '/meta/:type/:id/:extra.json'], async (req, res
         meta: {
           id: `phimapi:${slug}`,
           type: type,
-          name: movie.name || 'Anime',
+          name: movie.name || 'Hoạt Hình',
           poster: p,
           background: b || p,
           description: movie.content ? movie.content.replace(/<[^>]*>?/gm, '') : '',
@@ -345,4 +323,4 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 
 const PORT = process.env.PORT || 7000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-  
+      
