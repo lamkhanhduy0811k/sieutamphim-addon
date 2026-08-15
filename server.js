@@ -37,7 +37,7 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio',
-  version: '1.7.0',
+  version: '1.8.0',
   name: 'Sưu Tầm Phim',
   description: 'Xem phim HD, Phim bộ, Anime Nhật & Hoạt hình Trung Quốc',
   resources: ['catalog', 'meta', 'stream'],
@@ -88,7 +88,7 @@ async function getBloggerFeed(label, query = '', skip = 0, limit = 100) {
     }
 
     const res = await axios.get(feedUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+      headers: { 'User-Agent': 'Mozilla/5.0' },
       timeout: 8000
     });
 
@@ -138,12 +138,9 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
 
   let metas = [];
 
-  // 1. Nếu là mục Anime Nhật Bản -> Lọc nhãn Anime từ Web
   if (id === 'stp_anime') {
     metas = await getBloggerFeed('Anime', searchQuery, skip, 100);
-  } 
-  // 2. Nếu là mục Hoạt Hình Trung Quốc -> Lấy trực tiếp từ kho Hoạt Hình PhimAPI
-  else if (id === 'stp_hoathinh_trungquoc') {
+  } else if (id === 'stp_hoathinh_trungquoc') {
     try {
       let page = Math.floor(skip / 24) + 1;
       let apiUrl = searchQuery 
@@ -167,9 +164,7 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
         });
       }
     } catch (e) {}
-  } 
-  // 3. Các mục Phim Lẻ / Phim Bộ thông thường
-  else {
+  } else {
     let label = (type === 'series') ? 'Phim Bộ' : 'Phim Lẻ';
     metas = await getBloggerFeed(label, searchQuery, skip, 100);
   }
@@ -220,7 +215,7 @@ app.get(['/meta/:type/:id.json', '/meta/:type/:id/:extra.json'], async (req, res
 
   try {
     const { data } = await axios.get(pageUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+      headers: { 'User-Agent': 'Mozilla/5.0' },
       timeout: 8000
     });
     const $ = cheerio.load(data);
@@ -229,16 +224,18 @@ app.get(['/meta/:type/:id.json', '/meta/:type/:id/:extra.json'], async (req, res
     const posterHD = fixImgUrl(rawImg);
 
     const videos = [];
-    $('.list-episode a, .episode-list a, .list-server a, #list-episode a, a.btn-episode, .halim-list-eps a').each((i, el) => {
-      const epTitle = $(el).text().trim() || `Tập ${i + 1}`;
-      const epUrl = $(el).attr('href') || $(el).attr('data-embed') || '';
-      if (epUrl) {
-        videos.push({
-          id: `stp:${slug}::${encodeURIComponent(epUrl)}::${i + 1}`,
-          title: epTitle,
-          season: 1,
-          episode: i + 1
-        });
+    $('a').each((i, el) => {
+      const href = $(el).attr('href') || '';
+      const text = $(el).text().trim();
+      if ((text.includes('Tập') || text.match(/^\d+$/)) && href && !href.includes('facebook') && !href.includes('zalo')) {
+        if (!videos.some(v => v.title === text)) {
+          videos.push({
+            id: `stp:${slug}::${encodeURIComponent(href)}::${videos.length + 1}`,
+            title: text.includes('Tập') ? text : `Tập ${text}`,
+            season: 1,
+            episode: videos.length + 1
+          });
+        }
       }
     });
 
@@ -288,7 +285,6 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 
   try {
     let targetLink = '';
-    
     if (id.includes('::')) {
       const parts = id.split('::');
       const rawUrl = decodeURIComponent(parts[1]);
@@ -303,7 +299,7 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
     }
 
     const { data } = await axios.get(targetLink, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+      headers: { 'User-Agent': 'Mozilla/5.0' },
       timeout: 8000
     });
 
@@ -323,4 +319,4 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 
 const PORT = process.env.PORT || 7000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-            
+  
