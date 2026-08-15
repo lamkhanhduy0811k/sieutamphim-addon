@@ -26,47 +26,47 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio',
-  version: '13.0.0',
+  version: '14.0.0',
   name: 'Sưu Tầm Phim',
-  description: 'Kho tối ưu hoàn hảo: Phim Lẻ, Phim Bộ, Anime Nhật, Movie Anime & Hoạt hình Trung Quốc',
+  description: 'Kho siêu khổng lồ 500+ bộ mỗi danh mục: Phim Lẻ, Phim Bộ, Anime Nhật, Movie Anime & Hoạt hình Trung Quốc',
   resources: ['catalog', 'meta', 'stream'],
   types: ['movie', 'series'],
   catalogs: [
     {
       type: 'movie',
       id: 'stp_latest_movies',
-      name: 'Sưu Tầm Phim - Phim Lẻ',
+      name: 'Sưu Tầm Phim - Phim Lẻ (500+ Bộ)',
       extra: [{ name: 'search', isRequired: false }, { name: 'skip', isRequired: false }]
     },
     {
       type: 'series',
       id: 'stp_latest_series',
-      name: 'Sưu Tầm Phim - Phim Bộ',
+      name: 'Sưu Tầm Phim - Phim Bộ (500+ Bộ)',
       extra: [{ name: 'search', isRequired: false }, { name: 'skip', isRequired: false }]
     },
     {
       type: 'series',
       id: 'stp_anime',
-      name: 'Sưu Tầm Phim - Anime Nhật Bản',
+      name: 'Sưu Tầm Phim - Anime Nhật Bản (500+ Bộ)',
       extra: [{ name: 'search', isRequired: false }, { name: 'skip', isRequired: false }]
     },
     {
       type: 'movie',
       id: 'stp_anime_movie',
-      name: 'Sưu Tầm Phim - Movie Anime Chiếu Rạp',
+      name: 'Sưu Tầm Phim - Movie Anime Chiếu Rạp (500+ Bộ)',
       extra: [{ name: 'search', isRequired: false }, { name: 'skip', isRequired: false }]
     },
     {
       type: 'series',
       id: 'stp_hoathinh',
-      name: 'Sưu Tầm Phim - Hoạt Hình 3D Trung Quốc',
+      name: 'Sưu Tầm Phim - Hoạt Hình 3D Trung Quốc (500+ Bộ)',
       extra: [{ name: 'search', isRequired: false }, { name: 'skip', isRequired: false }]
     }
   ],
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v13.0.0 (Balanced Smart Cache)!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v14.0.0 (Massive 500+ Scale Cache)!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 const cacheStore = {
@@ -94,18 +94,18 @@ async function fetchAllMegaData() {
   const cdn = 'https://phimimg.com';
 
   const moviePromises = [];
-  for (let p = 1; p <= 10; p++) {
-    moviePromises.push(axios.get(`https://phimapi.com/v1/api/danh-sach/phim-le?page=${p}&limit=50`, { timeout: 5000 }).catch(() => null));
+  for (let p = 1; p <= 25; p++) {
+    moviePromises.push(axios.get(`https://phimapi.com/v1/api/danh-sach/phim-le?page=${p}&limit=50`, { timeout: 6000 }).catch(() => null));
   }
 
   const seriesPromises = [];
-  for (let p = 1; p <= 10; p++) {
-    seriesPromises.push(axios.get(`https://phimapi.com/v1/api/danh-sach/phim-bo?page=${p}&limit=50`, { timeout: 5000 }).catch(() => null));
+  for (let p = 1; p <= 20; p++) {
+    seriesPromises.push(axios.get(`https://phimapi.com/v1/api/danh-sach/phim-bo?page=${p}&limit=50`, { timeout: 6000 }).catch(() => null));
   }
 
   const hhPromises = [];
-  for (let p = 1; p <= 15; p++) {
-    hhPromises.push(axios.get(`https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${p}&limit=50`, { timeout: 5000 }).catch(() => null));
+  for (let p = 1; p <= 35; p++) {
+    hhPromises.push(axios.get(`https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${p}&limit=60`, { timeout: 6000 }).catch(() => null));
   }
 
   const [movieRes, seriesRes, hhRes] = await Promise.all([
