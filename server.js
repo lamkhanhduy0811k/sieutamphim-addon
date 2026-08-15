@@ -1,6 +1,5 @@
 const express = require('express');
 const axios = require('axios');
-const cheerio = require('cheerio');
 const cors = require('cors');
 
 const app = express();
@@ -27,7 +26,7 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio',
-  version: '10.0.0',
+  version: '11.0.0',
   name: 'Sưu Tầm Phim',
   description: 'Kho siêu khổng lồ 1000+ bộ mỗi danh mục: Phim Lẻ, Phim Bộ, Anime Nhật, Movie Anime & Hoạt hình Trung Quốc',
   resources: ['catalog', 'meta', 'stream'],
@@ -67,215 +66,129 @@ const MANIFEST = {
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v10.0.0 (Instant Mega Scale)!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v11.0.0 (Fast Paginated Mega Scale)!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
-const cacheStore = {
-  movies: null,
-  series: null,
-  anime: null,
-  animeMovie: null,
-  hoathinh: null,
-  lastUpdated: 0
-};
+const cdn = 'https://phimimg.com';
 
-async function fetchAllMegaData() {
-  const now = Date.now();
-  if (cacheStore.movies && (now - cacheStore.lastUpdated < 30 * 60 * 1000)) {
-    return cacheStore;
-  }
-
-  let allMovies = [];
-  let allSeries = [];
-  let rawSingleMovies = [];
-
-  const moviePromises = [];
-  for (let p = 1; p <= 40; p++) {
-    moviePromises.push(axios.get(`https://phimapi.com/v1/api/danh-sach/phim-le?page=${p}&limit=50`, { timeout: 6000 }).catch(() => null));
-  }
-
-  const seriesPromises = [];
-  for (let p = 1; p <= 25; p++) {
-    seriesPromises.push(axios.get(`https://phimapi.com/v1/api/danh-sach/phim-bo?page=${p}&limit=50`, { timeout: 6000 }).catch(() => null));
-  }
-
-  const hhPromises = [];
-  for (let p = 1; p <= 65; p++) {
-    hhPromises.push(axios.get(`https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${p}&limit=50`, { timeout: 6000 }).catch(() => null));
-  }
-
-  const [movieRes, seriesRes, hhRes] = await Promise.all([
-    Promise.all(moviePromises),
-    Promise.all(seriesPromises),
-    Promise.all(hhPromises)
-  ]);
-
-  const cdn = 'https://phimimg.com';
-
-  movieRes.forEach(res => {
-    if (res?.data?.data?.items) {
-      res.data.data.items.forEach(item => {
-        const itemObj = {
+async function fetchCatalogData(catalogId, page) {
+  let items = [];
+  try {
+    if (catalogId === 'stp_latest_movies') {
+      const { data } = await axios.get(`https://phimapi.com/v1/api/danh-sach/phim-le?page=${page}&limit=50`, { timeout: 5000 });
+      if (data?.data?.items) {
+        items = data.data.items.map(item => ({
           id: `phimapi:${item.slug}`,
           type: 'movie',
           name: item.name,
           poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
           background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
-          description: 'Phim Lẻ HD',
-          country: JSON.stringify(item.country || '').toLowerCase(),
-          category: JSON.stringify(item.category || '').toLowerCase(),
-          slug: (item.slug || '').toLowerCase(),
-          originName: (item.origin_name || '').toLowerCase()
-        };
-        allMovies.push(itemObj);
-        rawSingleMovies.push(itemObj);
-      });
-    }
-  });
-
-  seriesRes.forEach(res => {
-    if (res?.data?.data?.items) {
-      res.data.data.items.forEach(item => {
-        allSeries.push({
+          description: 'Phim Lẻ HD'
+        }));
+      }
+    } else if (catalogId === 'stp_latest_series') {
+      const { data } = await axios.get(`https://phimapi.com/v1/api/danh-sach/phim-bo?page=${page}&limit=50`, { timeout: 5000 });
+      if (data?.data?.items) {
+        items = data.data.items.map(item => ({
           id: `phimapi:${item.slug}`,
           type: 'series',
           name: item.name,
           poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
           background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
           description: 'Phim Bộ HD'
-        });
-      });
-    }
-  });
-
-  let rawHh = [];
-  hhRes.forEach(res => {
-    if (res?.data?.data?.items) {
-      rawHh = rawHh.concat(res.data.data.items);
-    }
-  });
-
-  const animeList = [];
-  const animeMovieList = [];
-  const cnHoathinhList = [];
-
-  const strictBlacklist = [
-    'mặt cười', 'laughing man', 'stand alone complex', 's.a.c', 
-    'lord el-melloi', 'rail zeppelin', 'case files', 'grand blue', 
-    '100 cô bạn gái', 'yozakura', 'hell mode', 'cậu và tớ', 'nữ hùng',
-    'oakhaven', 'phần 2', 'phần 3', 'season 2', 'season 3', 'ss2', 'ss3'
-  ];
-
-  rawSingleMovies.forEach(item => {
-    const nameLower = item.name.toLowerCase();
-    const isJapan = item.country.includes('nhật bản') || item.country.includes('japan') || item.country.includes('jp') ||
-                    item.category.includes('hoạt hình') || item.slug.includes('anime') || nameLower.includes('anime');
-    
-    if (isJapan) {
-      const hasBlacklistedWord = strictBlacklist.some(kw => nameLower.includes(kw) || item.slug.includes(kw));
-      if (!hasBlacklistedWord) {
-        animeMovieList.push({
-          id: item.id,
-          type: 'movie',
-          name: item.name,
-          poster: item.poster,
-          background: item.background,
-          description: 'Movie Anime Chiếu Rạp HD'
-        });
-      }
-    }
-  });
-
-  rawHh.forEach(item => {
-    const cStr = JSON.stringify(item.country || '').toLowerCase();
-    const nameStr = (item.name || '').toLowerCase();
-    const originName = (item.origin_name || '').toLowerCase();
-    const slugStr = (item.slug || '').toLowerCase();
-    const categoryStr = JSON.stringify(item.category || '').toLowerCase();
-    const contentStr = (item.content || '').toLowerCase();
-    const eStr = (item.episode_current || '').toLowerCase();
-
-    const isJapan = cStr.includes('nhật bản') || cStr.includes('japan') || cStr.includes('jp');
-
-    if (isJapan) {
-      animeList.push({
-        id: `phimapi:${item.slug}`,
-        type: 'series',
-        name: item.name,
-        poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
-        background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
-        description: 'Anime Nhật Bản HD'
-      });
-
-      const hasBlacklistedWord = strictBlacklist.some(kw => nameStr.includes(kw) || slugStr.includes(kw));
-      if (hasBlacklistedWord) return;
-
-      if (nameStr.includes('lời nguyền') || nameStr.includes('ju-on') || nameStr.includes('narayama') || 
-          categoryStr.includes('live action') || contentStr.includes('live-action') ||
-          nameStr.includes('phần') || nameStr.includes('season') || nameStr.includes('mùa') ||
-          eStr.includes('tập') || eStr.includes('/')) {
-        return;
-      }
-
-      const isMovie = item.type === 'movie' || item.type === 'single' ||
-                      nameStr.includes('movie') || originName.includes('movie') || slugStr.includes('movie') ||
-                      nameStr.includes('ova') || originName.includes('ova') || slugStr.includes('ova') ||
-                      nameStr.includes('special') || nameStr.includes('chieu rap') || slugStr.includes('chieu-rap') ||
-                      eStr.includes('full') || eStr.includes('1 tập') || eStr.includes('hoàn tất') || eStr.includes('1/1');
-
-      if (isMovie) {
-        animeMovieList.push({
-          id: `phimapi:${item.slug}`,
-          type: 'movie',
-          name: item.name,
-          poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
-          background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
-          description: 'Movie Anime Chiếu Rạp HD'
-        });
+        }));
       }
     } else {
-      cnHoathinhList.push({
-        id: `phimapi:${item.slug}`,
-        type: 'series',
-        name: item.name,
-        poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
-        background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
-        description: 'Hoạt hình Trung Quốc HD'
-      });
+      // Đối với hoạt hình, anime và movie anime, ta quét kho hoạt hình theo từng trang cụ thể
+      const { data } = await axios.get(`https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${page}&limit=50`, { timeout: 5000 });
+      if (data?.data?.items) {
+        const rawHh = data.data.items;
+        const animeList = [];
+        const animeMovieList = [];
+        const cnHoathinhList = [];
+
+        rawHh.forEach(item => {
+          const cStr = JSON.stringify(item.country || '').toLowerCase();
+          const nameStr = (item.name || '').toLowerCase();
+          const originName = (item.origin_name || '').toLowerCase();
+          const slugStr = (item.slug || '').toLowerCase();
+          const categoryStr = JSON.stringify(item.category || '').toLowerCase();
+          const contentStr = (item.content || '').toLowerCase();
+          const eStr = (item.episode_current || '').toLowerCase();
+
+          const isJapan = cStr.includes('nhật bản') || cStr.includes('japan') || cStr.includes('jp');
+
+          if (isJapan) {
+            animeList.push({
+              id: `phimapi:${item.slug}`,
+              type: 'series',
+              name: item.name,
+              poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
+              background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
+              description: 'Anime Nhật Bản HD'
+            });
+
+            if (nameStr.includes('lời nguyền') || nameStr.includes('ju-on') || nameStr.includes('narayama') || 
+                categoryStr.includes('live action') || contentStr.includes('live-action') ||
+                nameStr.includes('phần') || nameStr.includes('season') || nameStr.includes('mùa') ||
+                eStr.includes('tập') || eStr.includes('/')) {
+              return;
+            }
+
+            const isMovie = item.type === 'movie' || item.type === 'single' ||
+                            nameStr.includes('movie') || originName.includes('movie') || slugStr.includes('movie') ||
+                            nameStr.includes('ova') || originName.includes('ova') || slugStr.includes('ova') ||
+                            nameStr.includes('special') || nameStr.includes('chieu rap') || slugStr.includes('chieu-rap') ||
+                            eStr.includes('full') || eStr.includes('1 tập') || eStr.includes('hoàn tất') || eStr.includes('1/1');
+
+            if (isMovie) {
+              animeMovieList.push({
+                id: `phimapi:${item.slug}`,
+                type: 'movie',
+                name: item.name,
+                poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
+                background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
+                description: 'Movie Anime Chiếu Rạp HD'
+              });
+            }
+          } else {
+            cnHoathinhList.push({
+              id: `phimapi:${item.slug}`,
+              type: 'series',
+              name: item.name,
+              poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
+              background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
+              description: 'Hoạt hình Trung Quốc HD'
+            });
+          }
+        });
+
+        if (catalogId === 'stp_anime') items = animeList;
+        else if (catalogId === 'stp_anime_movie') items = animeMovieList;
+        else if (catalogId === 'stp_hoathinh') items = cnHoathinhList;
+      }
     }
-  });
-
-  cacheStore.movies = allMovies;
-  cacheStore.series = allSeries;
-  cacheStore.anime = animeList;
-  cacheStore.animeMovie = animeMovieList;
-  cacheStore.hoathinh = cnHoathinhList;
-  cacheStore.lastUpdated = now;
-
-  return cacheStore;
+  } catch (err) {
+    console.error('Fetch error:', err.message);
+  }
+  return items;
 }
 
 app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (req, res) => {
   const { id, extra: extraStr } = req.params;
   const extra = parseExtra(extraStr);
-  const searchQuery = (extra.search || '').toLowerCase();
   const skip = parseInt(extra.skip) || 0;
-  const limit = 50;
+  
+  // Tính toán trang dựa trên thông số skip của Stremio/Nuvio (mỗi trang khoảng 50 phim)
+  const pageToFetch = Math.floor(skip / 50) + 1;
+  let metas = await fetchCatalogData(id, pageToFetch);
 
-  const data = await fetchAllMegaData();
-  let fullList = [];
-
-  if (id === 'stp_latest_movies') fullList = data.movies;
-  else if (id === 'stp_latest_series') fullList = data.series;
-  else if (id === 'stp_anime') fullList = data.anime;
-  else if (id === 'stp_anime_movie') fullList = data.animeMovie;
-  else if (id === 'stp_hoathinh') fullList = data.hoathinh;
-
-  if (searchQuery) {
-    fullList = fullList.filter(item => item.name.toLowerCase().includes(searchQuery));
+  // Nếu trang hiện tại không đủ hoặc cần thiết, quét gộp thêm 1 trang kế tiếp để đảm bảo kho phim luôn đạt mốc 1000+ phong phú
+  if (metas.length < 20 && pageToFetch > 1) {
+    const extraMetas = await fetchCatalogData(id, pageToFetch + 1);
+    metas = metas.concat(extraMetas);
   }
 
-  const metas = fullList.slice(skip, skip + limit);
   res.json({ metas });
 });
 
@@ -344,4 +257,4 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 
 const PORT = process.env.PORT || 7000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-        
+    
