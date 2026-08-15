@@ -14,7 +14,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// Hàm xử lý ảnh Blogspot về độ phân giải gốc nét nhất
 function fixImgUrl(url) {
   if (!url) return '';
   let fixed = url
@@ -25,16 +24,52 @@ function fixImgUrl(url) {
   return fixed;
 }
 
+function parseExtra(extraStr) {
+  const extra = {};
+  if (!extraStr) return extra;
+  const parts = extraStr.split('&');
+  parts.forEach(p => {
+    const [k, v] = p.split('=');
+    if (k && v) extra[k] = decodeURIComponent(v);
+  });
+  return extra;
+}
+
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio',
-  version: '1.4.0',
+  version: '1.5.0',
   name: 'Sưu Tầm Phim',
   description: 'Xem phim HD nét cao từ SieuTamPhim.pro',
   resources: ['catalog', 'meta', 'stream'],
   types: ['movie', 'series'],
   catalogs: [
-    { type: 'movie', id: 'stp_latest_movies', name: 'Sưu Tầm Phim - Phim Lẻ' },
-    { type: 'series', id: 'stp_latest_series', name: 'Sưu Tầm Phim - Phim Bộ' }
+    {
+      type: 'movie',
+      id: 'stp_latest_movies',
+      name: 'Sưu Tầm Phim - Phim Lẻ',
+      extra: [
+        { name: 'search', isRequired: false },
+        { name: 'skip', isRequired: false }
+      ]
+    },
+    {
+      type: 'series',
+      id: 'stp_latest_series',
+      name: 'Sưu Tầm Phim - Phim Bộ',
+      extra: [
+        { name: 'search', isRequired: false },
+        { name: 'skip', isRequired: false }
+      ]
+    },
+    {
+      type: 'series',
+      id: 'stp_hoathinh',
+      name: 'Sưu Tầm Phim - Hoạt Hình',
+      extra: [
+        { name: 'search', isRequired: false },
+        { name: 'skip', isRequired: false }
+      ]
+    }
   ],
   idPrefixes: ['stp:', 'phimapi:']
 };
@@ -42,11 +77,17 @@ const MANIFEST = {
 app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
-async function getBloggerFeed(label) {
+async function getBloggerFeed(label, query = '', skip = 0, limit = 100) {
   try {
-    let feedUrl = 'https://www.sieutamphim.pro/feeds/posts/default?alt=json&max-results=30';
-    if (label) {
-      feedUrl = `https://www.sieutamphim.pro/feeds/posts/default/-/${encodeURIComponent(label)}?alt=json&max-results=30`;
+    const startIndex = skip + 1;
+    let baseUrl = 'https://www.sieutamphim.pro/feeds/posts/default';
+    if (label && !query) {
+      baseUrl = `https://www.sieutamphim.pro/feeds/posts/default/-/${encodeURIComponent(label)}`;
+    }
+
+    let feedUrl = `${baseUrl}?alt=json&max-results=${limit}&start-index=${startIndex}`;
+    if (query) {
+      feedUrl += `&q=${encodeURIComponent(query)}`;
     }
 
     const res = await axios.get(feedUrl, {
@@ -77,7 +118,7 @@ async function getBloggerFeed(label) {
       if (slug && !metas.some(m => m.id === `stp:${slug}`)) {
         metas.push({
           id: `stp:${slug}`,
-          type: label === 'Phim Bộ' ? 'series' : 'movie',
+          type: label === 'Phim Bộ' || label === 'Hoạt Hình' ? 'series' : 'movie',
           name: title,
           poster: posterHD || 'https://via.placeholder.com/300x450?text=No+Poster',
           background: posterHD,
@@ -93,19 +134,33 @@ async function getBloggerFeed(label) {
 }
 
 app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (req, res) => {
-  const { type } = req.params;
-  const label = type === 'series' ? 'Phim Bộ' : 'Phim Lẻ';
+  const { type, id, extra: extraStr } = req.params;
+  const extra = parseExtra(extraStr);
+  const searchQuery = extra.search || '';
+  const skip = parseInt(extra.skip) || 0;
 
-  let metas = await getBloggerFeed(label);
-  if (metas.length === 0) metas = await getBloggerFeed(null);
+  let label = null;
+  if (id === 'stp_hoathinh') label = 'Hoạt Hình';
+  else if (type === 'series') label = 'Phim Bộ';
+  else label = 'Phim Lẻ';
 
-  if (metas.length === 0) {
+  let metas = await getBloggerFeed(label, searchQuery, skip, 100);
+
+  if (metas.length === 0 && !searchQuery) {
+    metas = await getBloggerFeed(null, '', skip, 100);
+  }
+
+  if (metas.length < 20 || searchQuery) {
     try {
-      const category = type === 'series' ? 'hoat-hinh' : 'phim-le';
-      const apiRes = await axios.get(`https://phimapi.com/v1/api/danh-sach/${category}?page=1`, { timeout: 8000 });
+      let page = Math.floor(skip / 24) + 1;
+      let apiUrl = searchQuery 
+        ? `https://phimapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(searchQuery)}&limit=30`
+        : `https://phimapi.com/v1/api/danh-sach/${id === 'stp_hoathinh' ? 'hoat-hinh' : (type === 'series' ? 'phim-bo' : 'phim-le')}?page=${page}&limit=30`;
+
+      const apiRes = await axios.get(apiUrl, { timeout: 8000 });
       if (apiRes.data?.data?.items) {
         const cdn = apiRes.data.data.APP_DOMAIN_CDN_IMAGE || 'https://phimimg.com';
-        metas = apiRes.data.data.items.map(item => {
+        const backupMetas = apiRes.data.data.items.map(item => {
           const p = item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`;
           const b = item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`;
           return {
@@ -116,6 +171,12 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
             background: b || p,
             description: `Phim HD`
           };
+        });
+
+        backupMetas.forEach(bm => {
+          if (!metas.some(m => m.name.toLowerCase() === bm.name.toLowerCase() || m.id === bm.id)) {
+            metas.push(bm);
+          }
         });
       }
     } catch (e) {}
@@ -270,3 +331,4 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 
 const PORT = process.env.PORT || 7000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+                          
