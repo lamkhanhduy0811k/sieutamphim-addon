@@ -26,10 +26,10 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio',
-  version: '21.1.4',
+  version: '21.1.7',
   name: 'Sưu Tầm Phim',
   description: 'Kho khổng lồ 500+ bộ mỗi danh mục: Phim Mới Cập Nhật, Phim Lẻ, Phim Bộ, Anime Nhật, Movie Anime & Hoạt hình Trung Quốc',
-  logo: 'https://i.imgur.com/gHhDk2i.jpg',
+  logo: 'https://i.ibb.co/689Q287/1000004533.jpg',
   resources: ['catalog', 'meta', 'stream'],
   types: ['movie', 'series'],
   catalogs: [
@@ -73,7 +73,7 @@ const MANIFEST = {
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.4!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.7!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 const cacheStore = {
@@ -253,7 +253,6 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
   const cdn = 'https://phimimg.com';
   const limit = 50;
 
-  // Khi có từ khóa tìm kiếm, chỉ trả về kết quả ở mục đầu tiên (stp_new_updates), các mục khác trả về rỗng
   if (searchQuery) {
     if (id !== 'stp_new_updates') {
       return res.json({ metas: [] });
@@ -322,13 +321,24 @@ app.get(['/meta/:type/:id.json', '/meta/:type/:id/:extra.json'], async (req, res
       const b = movie.thumb_url?.startsWith('http') ? movie.thumb_url : `https://phimimg.com/${movie.thumb_url}`;
       const thumbImg = b || p;
 
-      const videos = epData.map((ep, idx) => ({
-        id: `phimapi:${slug}:${ep.slug}`,
-        title: ep.name.includes('Tập') ? ep.name : `Tập ${ep.name}`,
-        thumbnail: thumbImg,
-        season: 1,
-        episode: idx + 1
-      }));
+      const videos = epData.map((ep, idx) => {
+        let seasonNum = 1;
+        const lowerName = (ep.name || '').toLowerCase();
+        
+        // Nhận diện số phần/mùa từ tên tập phim (Ví dụ: "Phần 2", "Season 3", "Phần 2 - Tập 1"...)
+        const match = lowerName.match(/(?:phần|season|mùa)\s*(\d+)/);
+        if (match) {
+          seasonNum = parseInt(match[1]) || 1;
+        }
+
+        return {
+          id: `phimapi:${slug}:${ep.slug}`,
+          title: ep.name.includes('Tập') ? ep.name : `Tập ${ep.name}`,
+          thumbnail: thumbImg,
+          season: seasonNum,
+          episode: idx + 1
+        };
+      });
 
       return res.json({
         meta: {
@@ -373,4 +383,4 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 
 const PORT = process.env.PORT || 7000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-      
+                                                                                      
