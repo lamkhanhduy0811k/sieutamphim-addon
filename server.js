@@ -27,7 +27,7 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio',
-  version: '9.0.0',
+  version: '10.0.0',
   name: 'Sưu Tầm Phim',
   description: 'Kho siêu khổng lồ 1000+ bộ mỗi danh mục: Phim Lẻ, Phim Bộ, Anime Nhật, Movie Anime & Hoạt hình Trung Quốc',
   resources: ['catalog', 'meta', 'stream'],
@@ -67,7 +67,7 @@ const MANIFEST = {
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v9.0.0 (Ultimate Pure Movie Scale)!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v10.0.0 (Instant Mega Scale)!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 const cacheStore = {
@@ -159,7 +159,6 @@ async function fetchAllMegaData() {
   const animeMovieList = [];
   const cnHoathinhList = [];
 
-  // Danh sách đen tuyệt đối ngăn chặn hoàn toàn các bản tóm tắt TV series, OVA lắt nhắt, special không phải movie chuẩn
   const strictBlacklist = [
     'mặt cười', 'laughing man', 'stand alone complex', 's.a.c', 
     'lord el-melloi', 'rail zeppelin', 'case files', 'grand blue', 
@@ -345,3 +344,4 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 
 const PORT = process.env.PORT || 7000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+        
