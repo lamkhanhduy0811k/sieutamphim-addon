@@ -37,7 +37,7 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio',
-  version: '2.8.0',
+  version: '2.9.0',
   name: 'Sưu Tầm Phim',
   description: 'Xem đầy đủ Phim Lẻ, Phim Bộ, Anime Nhật, Movie Anime & Hoạt hình Trung Quốc',
   resources: ['catalog', 'meta', 'stream'],
@@ -235,8 +235,8 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
     try {
       let page = Math.floor(skip / 24) + 1;
       let apiUrl = searchQuery 
-        ? `https://phimapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(searchQuery)}&limit=100`
-        : `https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${page}&limit=100`;
+        ? `https://phimapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(searchQuery)}&limit=150`
+        : `https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${page}&limit=150`;
 
       const apiRes = await axios.get(apiUrl, { timeout: 8000 });
       if (apiRes.data?.data?.items) {
@@ -246,7 +246,6 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
             const cStr = JSON.stringify(item.country || '').toLowerCase();
             const eStr = (item.episode_current || '').toLowerCase();
             const isJapan = cStr.includes('nhật bản') || cStr.includes('japan') || cStr.includes('jp');
-            // Nới lỏng: miễn là phim Nhật và có số tập dạng hoàn thành (Full, 1/1, Hoàn Tất) hoặc tổng số tập <= 2
             const isShortOrMovie = eStr.includes('full') || eStr.includes('1/1') || eStr.includes('hoàn tất') || eStr.includes('tập 1');
             return isJapan && isShortOrMovie;
           })
@@ -442,4 +441,4 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 
 const PORT = process.env.PORT || 7000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-  
+        
