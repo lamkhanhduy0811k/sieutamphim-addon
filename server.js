@@ -26,7 +26,7 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio',
-  version: '21.1.9',
+  version: '21.1.10',
   name: 'Sưu Tầm Phim',
   description: 'Kho khổng lồ 500+ bộ mỗi danh mục: Phim Mới Cập Nhật, Phim Lẻ, Phim Bộ, Anime Nhật, Movie Anime & Hoạt hình Trung Quốc',
   logo: 'https://i.ibb.co/689Q287/1000004533.jpg',
@@ -73,7 +73,7 @@ const MANIFEST = {
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.9!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.10!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 const cacheStore = {
@@ -326,17 +326,17 @@ app.get(['/meta/:type/:id.json', '/meta/:type/:id/:extra.json'], async (req, res
         let episodeNum = idx + 1;
         const lowerName = (ep.name || '').toLowerCase();
         
-        const textMatch = lowerName.match(/(?:phần|season|mùa)\s*([ivx0-9]+)/);
+        // Bóc tách chính xác số Phần/Season/Mùa từ tên tập phim gốc
+        const textMatch = lowerName.match(/(?:phần|season|mùa|ss)\s*([ivx0-9]+)/);
         if (textMatch) {
             const roman = { 'i': 1, 'ii': 2, 'iii': 3, 'iv': 4, 'v': 5, 'vi': 6, 'vii': 7, 'viii': 8, 'ix': 9, 'x': 10 };
             seasonNum = roman[textMatch[1]] || parseInt(textMatch[1]) || 1;
-            const epMatch = lowerName.match(/tập\s*(\d+)/);
-            if (epMatch) episodeNum = parseInt(epMatch[1]);
-        } else {
-            if (epData.length > 24) {
-                seasonNum = Math.floor(idx / 24) + 1;
-                episodeNum = (idx % 24) + 1;
-            }
+        }
+
+        // Bóc tách số tập nếu có trong tên
+        const epMatch = lowerName.match(/(?:tập|ep)\s*(\d+)/);
+        if (epMatch) {
+            episodeNum = parseInt(epMatch[1]);
         }
 
         return {
@@ -391,4 +391,4 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 
 const PORT = process.env.PORT || 7000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-                
+            
