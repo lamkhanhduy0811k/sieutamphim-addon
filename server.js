@@ -26,7 +26,7 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio',
-  version: '21.1.2',
+  version: '21.1.3',
   name: 'Sưu Tầm Phim',
   description: 'Kho khổng lồ 500+ bộ mỗi danh mục: Phim Mới Cập Nhật, Phim Lẻ, Phim Bộ, Anime Nhật, Movie Anime & Hoạt hình Trung Quốc',
   logo: 'https://i.imgur.com/gHhDk2i.jpg',
@@ -73,7 +73,7 @@ const MANIFEST = {
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.2!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.3!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 const cacheStore = {
@@ -249,14 +249,35 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
   const { id, extra: extraStr } = req.params;
   const extra = parseExtra(extraStr);
   const skip = parseInt(extra.skip) || 0;
+  const searchQuery = extra.search ? decodeURIComponent(extra.search).trim() : null;
+  const cdn = 'https://phimimg.com';
   const limit = 50;
+
+  // Xử lý tìm kiếm trực tiếp từ API khi người dùng gõ từ khóa
+  if (searchQuery) {
+    try {
+      const searchUrl = `https://phimapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(searchQuery)}&limit=50`;
+      const { data } = await axios.get(searchUrl, { timeout: 5000 });
+      const items = data?.data?.items || [];
+      const metas = items.map(item => ({
+        id: `phimapi:${item.slug}`,
+        type: item.type === 'single' ? 'movie' : 'series',
+        name: item.name,
+        poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
+        background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
+        description: `Năm: ${item.year || 'HD'}`
+      }));
+      return res.json({ metas });
+    } catch (e) {
+      return res.json({ metas: [] });
+    }
+  }
 
   if (id === 'stp_new_updates') {
     try {
       const pageToFetch = Math.floor(skip / 30) + 1;
       const { data } = await axios.get(`https://phimapi.com/danh-sach/phim-moi-cap-nhat?page=${pageToFetch}`, { timeout: 4000 });
       if (data?.items) {
-        const cdn = 'https://phimimg.com';
         const metas = data.items.map(item => ({
           id: `phimapi:${item.slug}`,
           type: item.type === 'single' ? 'movie' : 'series',
@@ -349,4 +370,4 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 
 const PORT = process.env.PORT || 7000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-        
+              
