@@ -37,7 +37,7 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio',
-  version: '5.0.0',
+  version: '6.0.0',
   name: 'Sưu Tầm Phim',
   description: 'Kho siêu khổng lồ 1000+ bộ mỗi danh mục: Phim Lẻ, Phim Bộ, Anime Nhật, Movie Anime & Hoạt hình Trung Quốc',
   resources: ['catalog', 'meta', 'stream'],
@@ -77,10 +77,9 @@ const MANIFEST = {
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v5.0.0 (Mega Scale)!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v6.0.0 (Ultra Mega Scale)!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
-// Cache toàn cục để lưu trữ kho 1000+ phim, tránh gọi API liên tục gây chậm
 const cacheStore = {
   movies: null,
   series: null,
@@ -92,30 +91,28 @@ const cacheStore = {
 
 async function fetchAllMegaData() {
   const now = Date.now();
-  // Cache tồn tại trong 30 phút
   if (cacheStore.movies && (now - cacheStore.lastUpdated < 30 * 60 * 1000)) {
     return cacheStore;
   }
 
   let allMovies = [];
   let allSeries = [];
-  let allHoathinh = [];
 
-  // Quét song song nhiều trang Phim Lẻ (khoảng 20 trang = 1000 bộ)
+  // Quét 25 trang Phim Lẻ (~1250 bộ)
   const moviePromises = [];
-  for (let p = 1; p <= 20; p++) {
+  for (let p = 1; p <= 25; p++) {
     moviePromises.push(axios.get(`https://phimapi.com/v1/api/danh-sach/phim-le?page=${p}&limit=50`, { timeout: 6000 }).catch(() => null));
   }
 
-  // Quét song song nhiều trang Phim Bộ (khoảng 20 trang = 1000 bộ)
+  // Quét 25 trang Phim Bộ (~1250 bộ)
   const seriesPromises = [];
-  for (let p = 1; p <= 20; p++) {
+  for (let p = 1; p <= 25; p++) {
     seriesPromises.push(axios.get(`https://phimapi.com/v1/api/danh-sach/phim-bo?page=${p}&limit=50`, { timeout: 6000 }).catch(() => null));
   }
 
-  // Quét song song Hoạt Hình (khoảng 25 trang = 1200+ bộ để lọc anime và trung quốc)
+  // Quét siêu sâu 55 trang Hoạt Hình (~2700 bộ để gom đủ 1000+ bộ cho Anime, Movie và TQ)
   const hhPromises = [];
-  for (let p = 1; p <= 25; p++) {
+  for (let p = 1; p <= 55; p++) {
     hhPromises.push(axios.get(`https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${p}&limit=50`, { timeout: 6000 }).catch(() => null));
   }
 
@@ -180,7 +177,6 @@ async function fetchAllMegaData() {
     const isJapan = cStr.includes('nhật bản') || cStr.includes('japan') || cStr.includes('jp');
 
     if (isJapan) {
-      // Đưa vào kho Anime bộ
       animeList.push({
         id: `phimapi:${item.slug}`,
         type: 'series',
@@ -190,14 +186,8 @@ async function fetchAllMegaData() {
         description: 'Anime Nhật Bản HD'
       });
 
-      // Lọc Movie Anime / Chiếu Rạp / OVA
       if (nameStr.includes('lời nguyền') || nameStr.includes('ju-on') || nameStr.includes('narayama') || 
           categoryStr.includes('live action') || contentStr.includes('live-action')) {
-        return;
-      }
-
-      if (eStr.includes('12/') || eStr.includes('24/') || eStr.includes('13/') || eStr.includes('25/') || 
-          eStr.includes('tập 12') || eStr.includes('tập 24') || nameStr.includes('season') || nameStr.includes('mùa ')) {
         return;
       }
 
@@ -205,7 +195,8 @@ async function fetchAllMegaData() {
                       nameStr.includes('movie') || originName.includes('movie') || slugStr.includes('movie') ||
                       nameStr.includes('ova') || originName.includes('ova') || slugStr.includes('ova') ||
                       nameStr.includes('special') || nameStr.includes('chieu rap') || slugStr.includes('chieu-rap') ||
-                      eStr.includes('full') || eStr.includes('1 tập') || eStr.includes('hoàn tất') || eStr.includes('1/1');
+                      eStr.includes('full') || eStr.includes('1 tập') || eStr.includes('hoàn tất') || eStr.includes('1/1') ||
+                      !eStr.includes('/'); // Các phim lẻ không có định dạng tập X/Y
 
       if (isMovie) {
         animeMovieList.push({
@@ -218,7 +209,6 @@ async function fetchAllMegaData() {
         });
       }
     } else {
-      // Hoạt hình Trung Quốc
       cnHoathinhList.push({
         id: `phimapi:${item.slug}`,
         type: 'series',
@@ -329,4 +319,4 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 
 const PORT = process.env.PORT || 7000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-    
+        
