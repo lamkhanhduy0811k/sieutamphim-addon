@@ -37,7 +37,7 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio',
-  version: '3.7.0',
+  version: '3.8.0',
   name: 'Sưu Tầm Phim',
   description: 'Xem đầy đủ Phim Lẻ, Phim Bộ, Anime Nhật, Movie Anime & Hoạt hình Trung Quốc',
   resources: ['catalog', 'meta', 'stream'],
@@ -234,19 +234,17 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
   else if (id === 'stp_anime_movie') {
     try {
       let allItems = [];
-      // Quét sâu qua 25 trang hoạt hình để gom đủ số lượng ~100+ movie
-      for (let p = 1; p <= 25; p++) {
-        let apiUrl = searchQuery 
-          ? `https://phimapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(searchQuery)}&limit=100`
-          : `https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${p}&limit=50`;
+      // Quét sâu đồng thời danh mục hoạt hình và phim lẻ để vét toàn bộ movie anime
+      for (let p = 1; p <= 15; p++) {
+        try {
+          const resHh = await axios.get(`https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${p}&limit=50`, { timeout: 5000 });
+          if (resHh.data?.data?.items) allItems = allItems.concat(resHh.data.data.items);
+        } catch (e) {}
 
-        const apiRes = await axios.get(apiUrl, { timeout: 8000 });
-        if (apiRes.data?.data?.items && apiRes.data.data.items.length > 0) {
-          allItems = allItems.concat(apiRes.data.data.items);
-        } else {
-          break;
-        }
-        if (searchQuery) break;
+        try {
+          const resPl = await axios.get(`https://phimapi.com/v1/api/danh-sach/phim-le?page=${p}&limit=50`, { timeout: 5000 });
+          if (resPl.data?.data?.items) allItems = allItems.concat(resPl.data.data.items);
+        } catch (e) {}
       }
 
       const cdn = 'https://phimimg.com';
@@ -260,33 +258,36 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
         const typeStr = (item.type || '').toLowerCase();
         const eStr = (item.episode_current || '').toLowerCase();
 
-        // 1. Chỉ nhận hoạt hình Nhật Bản
+        // 1. Chỉ nhận phim Nhật Bản
         const isJapan = cStr.includes('nhật bản') || cStr.includes('japan') || cStr.includes('jp');
         if (!isJapan) return;
 
-        // 2. Bắt buộc phải có từ khóa nhận diện Movie / OVA / Chiếu rạp thực thụ
-        const hasMovieKeyword = nameStr.includes('movie') || originName.includes('movie') || slugStr.includes('movie') ||
-                                nameStr.includes('ova') || originName.includes('ova') || slugStr.includes('ova') ||
-                                nameStr.includes('special') || typeStr.includes('movie') ||
-                                nameStr.includes('chieu rap') || slugStr.includes('chieu-rap') ||
-                                nameStr.includes('the final') || nameStr.includes('the movie');
-
-        if (!hasMovieKeyword) return;
-
-        // 3. Chặn triệt để các series dài tập nếu lọt vào
-        if (nameStr.includes('season') || nameStr.includes('mùa ') || nameStr.includes('phần ') || 
-            eStr.includes('12/') || eStr.includes('24/') || eStr.includes('13/')) {
+        // 2. Chặn tuyệt đối các series dài tập (có số tập nhiều như 12/12, 24 tập...)
+        if (eStr.includes('12/') || eStr.includes('24/') || eStr.includes('13/') || eStr.includes('25/') || 
+            eStr.includes('tập 12') || eStr.includes('tập 24')) {
+          return;
+        }
+        if (nameStr.includes('season') || nameStr.includes('mùa ') || nameStr.includes('phần ') || slugStr.includes('phan-')) {
           return;
         }
 
-        map.set(item.slug, {
-          id: `phimapi:${item.slug}`,
-          type: 'movie',
-          name: item.name,
-          poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
-          background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
-          description: `Movie Anime Chiếu Rạp HD`
-        });
+        // 3. Chấp nhận các phim lẻ, movie, ova hoặc phim có nhãn full/1 tập hoàn tất
+        const isMovie = typeStr === 'movie' || typeStr === 'single' ||
+                        nameStr.includes('movie') || originName.includes('movie') || slugStr.includes('movie') ||
+                        nameStr.includes('ova') || originName.includes('ova') || slugStr.includes('ova') ||
+                        nameStr.includes('special') || nameStr.includes('chieu rap') || slugStr.includes('chieu-rap') ||
+                        eStr.includes('full') || eStr.includes('1 tập') || eStr.includes('hoàn tất') || eStr.includes('1/1');
+
+        if (isMovie) {
+          map.set(item.slug, {
+            id: `phimapi:${item.slug}`,
+            type: 'movie',
+            name: item.name,
+            poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
+            background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
+            description: `Movie Anime Chiếu Rạp HD`
+          });
+        }
       });
 
       metas = Array.from(map.values());
@@ -473,4 +474,4 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 
 const PORT = process.env.PORT || 7000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-          
+            
