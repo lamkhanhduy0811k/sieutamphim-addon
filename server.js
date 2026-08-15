@@ -26,7 +26,7 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio',
-  version: '21.1.3',
+  version: '21.1.4',
   name: 'Sưu Tầm Phim',
   description: 'Kho khổng lồ 500+ bộ mỗi danh mục: Phim Mới Cập Nhật, Phim Lẻ, Phim Bộ, Anime Nhật, Movie Anime & Hoạt hình Trung Quốc',
   logo: 'https://i.imgur.com/gHhDk2i.jpg',
@@ -36,44 +36,44 @@ const MANIFEST = {
     {
       type: 'movie',
       id: 'stp_new_updates',
-      name: 'Sưu Tầm Phim - Phim Mới Cập Nhật',
+      name: 'Sưu Tầm Phim - Phim Mới & Tìm Kiếm',
       extra: [{ name: 'search', isRequired: false }, { name: 'skip', isRequired: false }]
     },
     {
       type: 'movie',
       id: 'stp_latest_movies',
       name: 'Sưu Tầm Phim - Phim Lẻ (500+ Bộ)',
-      extra: [{ name: 'search', isRequired: false }, { name: 'skip', isRequired: false }]
+      extra: [{ name: 'skip', isRequired: false }]
     },
     {
       type: 'series',
       id: 'stp_latest_series',
       name: 'Sưu Tầm Phim - Phim Bộ (500+ Bộ)',
-      extra: [{ name: 'search', isRequired: false }, { name: 'skip', isRequired: false }]
+      extra: [{ name: 'skip', isRequired: false }]
     },
     {
       type: 'series',
       id: 'stp_anime',
       name: 'Sưu Tầm Phim - Anime Nhật Bản (500+ Bộ)',
-      extra: [{ name: 'search', isRequired: false }, { name: 'skip', isRequired: false }]
+      extra: [{ name: 'skip', isRequired: false }]
     },
     {
       type: 'movie',
       id: 'stp_anime_movie',
       name: 'Sưu Tầm Phim - Movie Anime Chiếu Rạp (500+ Bộ)',
-      extra: [{ name: 'search', isRequired: false }, { name: 'skip', isRequired: false }]
+      extra: [{ name: 'skip', isRequired: false }]
     },
     {
       type: 'series',
       id: 'stp_hoathinh',
       name: 'Sưu Tầm Phim - Hoạt Hình 3D Trung Quốc (500+ Bộ)',
-      extra: [{ name: 'search', isRequired: false }, { name: 'skip', isRequired: false }]
+      extra: [{ name: 'skip', isRequired: false }]
     }
   ],
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.3!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.4!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 const cacheStore = {
@@ -253,8 +253,11 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
   const cdn = 'https://phimimg.com';
   const limit = 50;
 
-  // Xử lý tìm kiếm trực tiếp từ API khi người dùng gõ từ khóa
+  // Khi có từ khóa tìm kiếm, chỉ trả về kết quả ở mục đầu tiên (stp_new_updates), các mục khác trả về rỗng
   if (searchQuery) {
+    if (id !== 'stp_new_updates') {
+      return res.json({ metas: [] });
+    }
     try {
       const searchUrl = `https://phimapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(searchQuery)}&limit=50`;
       const { data } = await axios.get(searchUrl, { timeout: 5000 });
