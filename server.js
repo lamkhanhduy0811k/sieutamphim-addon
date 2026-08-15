@@ -26,7 +26,7 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio',
-  version: '20.0.0',
+  version: '21.1.0',
   name: 'Sưu Tầm Phim',
   description: 'Kho khổng lồ 500+ bộ mỗi danh mục: Phim Mới Cập Nhật, Phim Lẻ, Phim Bộ, Anime Nhật, Movie Anime & Hoạt hình Trung Quốc',
   logo: 'https://i.ibb.co/689Q287/1000004533.jpg',
@@ -73,7 +73,7 @@ const MANIFEST = {
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v20.0.0 (Logo Fixed)!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.0 (Stable Fix)!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 const cacheStore = {
@@ -349,4 +349,4 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 
 const PORT = process.env.PORT || 7000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-        
+                                    
