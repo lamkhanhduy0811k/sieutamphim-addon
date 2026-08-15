@@ -37,7 +37,7 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio',
-  version: '3.2.0',
+  version: '3.3.0',
   name: 'Sưu Tầm Phim',
   description: 'Xem đầy đủ Phim Lẻ, Phim Bộ, Anime Nhật, Movie Anime & Hoạt hình Trung Quốc',
   resources: ['catalog', 'meta', 'stream'],
@@ -234,8 +234,8 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
   else if (id === 'stp_anime_movie') {
     try {
       let allItems = [];
-      // Quét sâu qua 12 trang để lấy danh sách khổng lồ các movie anime
-      for (let p = 1; p <= 12; p++) {
+      // Quét sâu qua 20 trang để gom hơn 100+ movie anime chuẩn xác
+      for (let p = 1; p <= 20; p++) {
         let apiUrl = searchQuery 
           ? `https://phimapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(searchQuery)}&limit=100`
           : `https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${p}&limit=100`;
@@ -262,16 +262,18 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
           const isJapan = cStr.includes('nhật bản') || cStr.includes('japan') || cStr.includes('jp');
           if (!isJapan) return false;
 
-          // Bắt buộc phải là movie, ova, special hoặc phim lẻ full 1 tập
+          // Điều kiện nhận diện Movie linh hoạt hơn để không bị sót phim hay
           const isMovie = nameStr.includes('movie') || originName.includes('movie') || slugStr.includes('movie') ||
                           nameStr.includes('ova') || originName.includes('ova') || slugStr.includes('ova') ||
                           nameStr.includes('special') || typeStr.includes('movie') ||
-                          eStr.includes('full') || eStr.includes('1 tập') || eStr.includes('hoàn tất') || eStr.includes('tập 1/1');
+                          eStr.includes('full') || eStr.includes('1 tập') || eStr.includes('hoàn tất') || 
+                          eStr.includes('tập 1/1') || eStr.includes('tập kết thúc') || !eStr.includes('/');
 
-          // Chặn hoàn toàn các chuỗi dài tập
-          const isNotSeries = !nameStr.includes('season') && !nameStr.includes('mùa') && 
-                              !nameStr.includes('phần') && !slugStr.includes('phan-') &&
-                              !eStr.includes('12/') && !eStr.includes('24/') && !eStr.includes('13/') && !eStr.includes('25/');
+          // Loại bỏ các series dài tập nhiều tập rõ rệt
+          const isNotSeries = !nameStr.includes('season') && !nameStr.includes('mùa ') && 
+                              !nameStr.includes('phần ') && !slugStr.includes('phan-') &&
+                              !eStr.includes('12/') && !eStr.includes('24/') && !eStr.includes('13/') && 
+                              !eStr.includes('25/') && !eStr.includes('10/') && !eStr.includes('11/');
 
           return isMovie && isNotSeries;
         })
@@ -466,4 +468,4 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 
 const PORT = process.env.PORT || 7000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-        
+                                     
