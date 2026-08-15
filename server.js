@@ -14,16 +14,6 @@ app.use((req, res, next) => {
   next();
 });
 
-function fixImgUrl(url) {
-  if (!url) return '';
-  let fixed = url
-    .replace(/\/s\d+(-c)?\//, '/s1600/')
-    .replace(/\/w\d+-h\d+[^/]*\//, '/s1600/')
-    .replace(/\/s\d+[^/]*\//, '/s1600/');
-  if (fixed.startsWith('//')) fixed = 'https:' + fixed;
-  return fixed;
-}
-
 function parseExtra(extraStr) {
   const extra = {};
   if (!extraStr) return extra;
@@ -37,7 +27,7 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio',
-  version: '7.0.0',
+  version: '9.0.0',
   name: 'Sưu Tầm Phim',
   description: 'Kho siêu khổng lồ 1000+ bộ mỗi danh mục: Phim Lẻ, Phim Bộ, Anime Nhật, Movie Anime & Hoạt hình Trung Quốc',
   resources: ['catalog', 'meta', 'stream'],
@@ -77,7 +67,7 @@ const MANIFEST = {
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v7.0.0 (Strict Movie Filter)!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v9.0.0 (Ultimate Pure Movie Scale)!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 const cacheStore = {
@@ -97,9 +87,10 @@ async function fetchAllMegaData() {
 
   let allMovies = [];
   let allSeries = [];
+  let rawSingleMovies = [];
 
   const moviePromises = [];
-  for (let p = 1; p <= 25; p++) {
+  for (let p = 1; p <= 40; p++) {
     moviePromises.push(axios.get(`https://phimapi.com/v1/api/danh-sach/phim-le?page=${p}&limit=50`, { timeout: 6000 }).catch(() => null));
   }
 
@@ -109,7 +100,7 @@ async function fetchAllMegaData() {
   }
 
   const hhPromises = [];
-  for (let p = 1; p <= 55; p++) {
+  for (let p = 1; p <= 65; p++) {
     hhPromises.push(axios.get(`https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${p}&limit=50`, { timeout: 6000 }).catch(() => null));
   }
 
@@ -124,14 +115,20 @@ async function fetchAllMegaData() {
   movieRes.forEach(res => {
     if (res?.data?.data?.items) {
       res.data.data.items.forEach(item => {
-        allMovies.push({
+        const itemObj = {
           id: `phimapi:${item.slug}`,
           type: 'movie',
           name: item.name,
           poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
           background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
-          description: 'Phim Lẻ HD'
-        });
+          description: 'Phim Lẻ HD',
+          country: JSON.stringify(item.country || '').toLowerCase(),
+          category: JSON.stringify(item.category || '').toLowerCase(),
+          slug: (item.slug || '').toLowerCase(),
+          originName: (item.origin_name || '').toLowerCase()
+        };
+        allMovies.push(itemObj);
+        rawSingleMovies.push(itemObj);
       });
     }
   });
@@ -162,6 +159,34 @@ async function fetchAllMegaData() {
   const animeMovieList = [];
   const cnHoathinhList = [];
 
+  // Danh sách đen tuyệt đối ngăn chặn hoàn toàn các bản tóm tắt TV series, OVA lắt nhắt, special không phải movie chuẩn
+  const strictBlacklist = [
+    'mặt cười', 'laughing man', 'stand alone complex', 's.a.c', 
+    'lord el-melloi', 'rail zeppelin', 'case files', 'grand blue', 
+    '100 cô bạn gái', 'yozakura', 'hell mode', 'cậu và tớ', 'nữ hùng',
+    'oakhaven', 'phần 2', 'phần 3', 'season 2', 'season 3', 'ss2', 'ss3'
+  ];
+
+  rawSingleMovies.forEach(item => {
+    const nameLower = item.name.toLowerCase();
+    const isJapan = item.country.includes('nhật bản') || item.country.includes('japan') || item.country.includes('jp') ||
+                    item.category.includes('hoạt hình') || item.slug.includes('anime') || nameLower.includes('anime');
+    
+    if (isJapan) {
+      const hasBlacklistedWord = strictBlacklist.some(kw => nameLower.includes(kw) || item.slug.includes(kw));
+      if (!hasBlacklistedWord) {
+        animeMovieList.push({
+          id: item.id,
+          type: 'movie',
+          name: item.name,
+          poster: item.poster,
+          background: item.background,
+          description: 'Movie Anime Chiếu Rạp HD'
+        });
+      }
+    }
+  });
+
   rawHh.forEach(item => {
     const cStr = JSON.stringify(item.country || '').toLowerCase();
     const nameStr = (item.name || '').toLowerCase();
@@ -183,7 +208,9 @@ async function fetchAllMegaData() {
         description: 'Anime Nhật Bản HD'
       });
 
-      // Chặn triệt để các phim live-action, phần tiếp theo, mùa mới hoặc anime bộ dài tập lọt vào
+      const hasBlacklistedWord = strictBlacklist.some(kw => nameStr.includes(kw) || slugStr.includes(kw));
+      if (hasBlacklistedWord) return;
+
       if (nameStr.includes('lời nguyền') || nameStr.includes('ju-on') || nameStr.includes('narayama') || 
           categoryStr.includes('live action') || contentStr.includes('live-action') ||
           nameStr.includes('phần') || nameStr.includes('season') || nameStr.includes('mùa') ||
@@ -191,7 +218,6 @@ async function fetchAllMegaData() {
         return;
       }
 
-      // Chỉ chấp nhận thực sự là Movie / Chiếu rạp / OVA / Special / Hoàn tất 1 tập
       const isMovie = item.type === 'movie' || item.type === 'single' ||
                       nameStr.includes('movie') || originName.includes('movie') || slugStr.includes('movie') ||
                       nameStr.includes('ova') || originName.includes('ova') || slugStr.includes('ova') ||
@@ -319,4 +345,3 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 
 const PORT = process.env.PORT || 7000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-        
