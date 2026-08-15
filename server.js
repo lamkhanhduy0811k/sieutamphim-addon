@@ -37,9 +37,9 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio',
-  version: '2.6.0',
+  version: '2.7.0',
   name: 'Sưu Tầm Phim',
-  description: 'Xem đầy đủ Phim Lẻ, Phim Bộ, Anime Nhật & Hoạt hình Trung Quốc với ảnh tập đầy đủ',
+  description: 'Xem đầy đủ Phim Lẻ, Phim Bộ, Anime Nhật, Movie Anime & Hoạt hình Trung Quốc',
   resources: ['catalog', 'meta', 'stream'],
   types: ['movie', 'series'],
   catalogs: [
@@ -59,6 +59,12 @@ const MANIFEST = {
       type: 'series',
       id: 'stp_anime',
       name: 'Sưu Tầm Phim - Anime (Nhật Bản)',
+      extra: [{ name: 'search', isRequired: false }, { name: 'skip', isRequired: false }]
+    },
+    {
+      type: 'movie',
+      id: 'stp_anime_movie',
+      name: 'Sưu Tầm Phim - Movie Anime (Chiếu Rạp)',
       extra: [{ name: 'search', isRequired: false }, { name: 'skip', isRequired: false }]
     },
     {
@@ -224,7 +230,37 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
     } catch (e) {
       metas = animeWeb;
     }
-  } 
+  }
+  else if (id === 'stp_anime_movie') {
+    try {
+      let page = Math.floor(skip / 24) + 1;
+      let apiUrl = searchQuery 
+        ? `https://phimapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(searchQuery)}&limit=100`
+        : `https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${page}&limit=100`;
+
+      const apiRes = await axios.get(apiUrl, { timeout: 8000 });
+      if (apiRes.data?.data?.items) {
+        const cdn = apiRes.data.data.APP_DOMAIN_CDN_IMAGE || 'https://phimimg.com';
+        metas = apiRes.data.data.items
+          .filter(item => {
+            const cStr = JSON.stringify(item.country || '').toLowerCase();
+            const tStr = (item.name || '').toLowerCase();
+            const eStr = (item.episode_current || '').toLowerCase();
+            const isJapan = cStr.includes('nhật bản') || cStr.includes('japan') || cStr.includes('jp');
+            const isMovie = tStr.includes('movie') || tStr.includes('phiên bản điện ảnh') || eStr.includes('full') || eStr.includes('1/1');
+            return isJapan && isMovie;
+          })
+          .map(item => ({
+            id: `phimapi:${item.slug}`,
+            type: 'movie',
+            name: item.name,
+            poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
+            background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
+            description: `Movie Anime Chiếu Rạp HD`
+          }));
+      }
+    } catch (e) {}
+  }
   else if (id === 'stp_hoathinh') {
     try {
       let page = Math.floor(skip / 24) + 1;
@@ -268,7 +304,7 @@ app.get(['/meta/:type/:id.json', '/meta/:type/:id/:extra.json'], async (req, res
 
       const p = movie.poster_url?.startsWith('http') ? movie.poster_url : `https://phimimg.com/${movie.poster_url}`;
       const b = movie.thumb_url?.startsWith('http') ? movie.thumb_url : `https://phimimg.com/${movie.thumb_url}`;
-      const thumbImg = b || p; // Tự động lấy ảnh nền/poster làm thumbnail cho từng tập
+      const thumbImg = b || p;
 
       const videos = epData.map((ep, idx) => ({
         id: `phimapi:${slug}:${ep.slug}`,
@@ -406,4 +442,4 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 
 const PORT = process.env.PORT || 7000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-                                                              
+        
