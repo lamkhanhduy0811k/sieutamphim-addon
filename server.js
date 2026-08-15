@@ -37,9 +37,9 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio',
-  version: '2.5.0',
+  version: '2.6.0',
   name: 'Sưu Tầm Phim',
-  description: 'Xem đầy đủ Phim Lẻ, Phim Bộ, Anime Nhật & Hoạt hình Trung Quốc phong phú',
+  description: 'Xem đầy đủ Phim Lẻ, Phim Bộ, Anime Nhật & Hoạt hình Trung Quốc với ảnh tập đầy đủ',
   resources: ['catalog', 'meta', 'stream'],
   types: ['movie', 'series'],
   catalogs: [
@@ -138,7 +138,6 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
 
   let metas = [];
 
-  // 1. Phim Lẻ
   if (id === 'stp_latest_movies') {
     metas = await getBloggerFeed('Phim Lẻ', searchQuery, skip, 100);
     if (metas.length < 20 || searchQuery) {
@@ -165,7 +164,6 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
       } catch (e) {}
     }
   } 
-  // 2. Phim Bộ
   else if (id === 'stp_latest_series') {
     metas = await getBloggerFeed('Phim Bộ', searchQuery, skip, 100);
     if (metas.length < 20 || searchQuery) {
@@ -192,7 +190,6 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
       } catch (e) {}
     }
   }
-  // 3. Anime (Nhật Bản)
   else if (id === 'stp_anime') {
     let animeWeb = await getBloggerFeed('Anime', searchQuery, skip, 50);
     try {
@@ -228,7 +225,6 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
       metas = animeWeb;
     }
   } 
-  // 4. Hoạt Hình 3D Trung Quốc (Lấy kho lớn và loại bỏ phim Nhật để lấy trọn bộ Trung Quốc)
   else if (id === 'stp_hoathinh') {
     try {
       let page = Math.floor(skip / 24) + 1;
@@ -242,7 +238,6 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
         metas = apiRes.data.data.items
           .filter(item => {
             const cStr = JSON.stringify(item.country || '').toLowerCase();
-            // Lọc lấy Trung Quốc hoặc các phim hoạt hình chung không phải của Nhật
             const isJapan = cStr.includes('nhật bản') || cStr.includes('japan') || cStr.includes('jp');
             return !isJapan;
           })
@@ -273,10 +268,12 @@ app.get(['/meta/:type/:id.json', '/meta/:type/:id/:extra.json'], async (req, res
 
       const p = movie.poster_url?.startsWith('http') ? movie.poster_url : `https://phimimg.com/${movie.poster_url}`;
       const b = movie.thumb_url?.startsWith('http') ? movie.thumb_url : `https://phimimg.com/${movie.thumb_url}`;
+      const thumbImg = b || p; // Tự động lấy ảnh nền/poster làm thumbnail cho từng tập
 
       const videos = epData.map((ep, idx) => ({
         id: `phimapi:${slug}:${ep.slug}`,
         title: ep.name.includes('Tập') ? ep.name : `Tập ${ep.name}`,
+        thumbnail: thumbImg,
         season: 1,
         episode: idx + 1
       }));
@@ -287,9 +284,9 @@ app.get(['/meta/:type/:id.json', '/meta/:type/:id/:extra.json'], async (req, res
           type: type,
           name: movie.name || 'Phim',
           poster: p,
-          background: b || p,
+          background: thumbImg,
           description: movie.content ? movie.content.replace(/<[^>]*>?/gm, '') : '',
-          videos: videos.length > 0 ? videos : [{ id: `phimapi:${slug}:full`, title: 'Tập 1', season: 1, episode: 1 }]
+          videos: videos.length > 0 ? videos : [{ id: `phimapi:${slug}:full`, title: 'Tập 1', thumbnail: thumbImg, season: 1, episode: 1 }]
         }
       });
     } catch (e) {
@@ -320,6 +317,7 @@ app.get(['/meta/:type/:id.json', '/meta/:type/:id/:extra.json'], async (req, res
         videos.push({
           id: `stp:${slug}::${encodeURIComponent(epUrl)}::${i + 1}`,
           title: epTitle,
+          thumbnail: posterHD,
           season: 1,
           episode: i + 1
         });
@@ -330,6 +328,7 @@ app.get(['/meta/:type/:id.json', '/meta/:type/:id/:extra.json'], async (req, res
       videos.push({
         id: `stp:${slug}::full::1`,
         title: 'Tập 1 / Phim Full',
+        thumbnail: posterHD,
         season: 1,
         episode: 1
       });
@@ -407,4 +406,4 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 
 const PORT = process.env.PORT || 7000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-              
+                                                              
