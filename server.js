@@ -37,7 +37,7 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio',
-  version: '3.4.0',
+  version: '3.5.0',
   name: 'Sưu Tầm Phim',
   description: 'Xem đầy đủ Phim Lẻ, Phim Bộ, Anime Nhật, Movie Anime & Hoạt hình Trung Quốc',
   resources: ['catalog', 'meta', 'stream'],
@@ -234,11 +234,11 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
   else if (id === 'stp_anime_movie') {
     try {
       let allItems = [];
-      // Quét qua 20 trang dữ liệu hoạt hình để gom hơn 100+ movie chuẩn xác nhất
-      for (let p = 1; p <= 20; p++) {
+      // Quét sâu qua nhiều trang hoạt hình để gom đủ số lượng lớn
+      for (let p = 1; p <= 15; p++) {
         let apiUrl = searchQuery 
           ? `https://phimapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(searchQuery)}&limit=100`
-          : `https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${p}&limit=100`;
+          : `https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${p}&limit=50`;
 
         const apiRes = await axios.get(apiUrl, { timeout: 8000 });
         if (apiRes.data?.data?.items && apiRes.data.data.items.length > 0) {
@@ -249,46 +249,61 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
         if (searchQuery) break;
       }
 
+      // Quét thêm danh mục phim lẻ để vét các movie anime được phân loại vào mục phim lẻ
+      for (let p = 1; p <= 5; p++) {
+        try {
+          const apiRes2 = await axios.get(`https://phimapi.com/v1/api/danh-sach/phim-le?page=${p}&limit=50`, { timeout: 5000 });
+          if (apiRes2.data?.data?.items) {
+            const jpMovies = apiRes2.data.data.items.filter(item => {
+              const cStr = JSON.stringify(item.country || '').toLowerCase();
+              return cStr.includes('nhật bản') || cStr.includes('japan') || cStr.includes('jp');
+            });
+            allItems = allItems.concat(jpMovies);
+          }
+        } catch(e) {}
+      }
+
       const cdn = 'https://phimimg.com';
-      metas = allItems
-        .filter(item => {
-          const cStr = JSON.stringify(item.country || '').toLowerCase();
-          const nameStr = (item.name || '').toLowerCase();
-          const originName = (item.origin_name || '').toLowerCase();
-          const slugStr = (item.slug || '').toLowerCase();
-          const typeStr = (item.type || '').toLowerCase();
-          const eStr = (item.episode_current || '').toLowerCase();
+      const map = new Map();
 
-          // Chỉ lấy hoạt hình Nhật Bản
-          const isJapan = cStr.includes('nhật bản') || cStr.includes('japan') || cStr.includes('jp');
-          if (!isJapan) return false;
+      allItems.forEach(item => {
+        const cStr = JSON.stringify(item.country || '').toLowerCase();
+        const nameStr = (item.name || '').toLowerCase();
+        const slugStr = (item.slug || '').toLowerCase();
+        const typeStr = (item.type || '').toLowerCase();
+        const eStr = (item.episode_current || '').toLowerCase();
 
-          // Chặn tuyệt đối các bộ có cấu trúc nhiều tập (có dấu / hoặc dạng tập dài)
-          if (eStr.includes('/') || eStr.includes('tập 2') || eStr.includes('tập 02') || eStr.includes('tập 12')) {
-            return false;
-          }
+        const isJapan = cStr.includes('nhật bản') || cStr.includes('japan') || cStr.includes('jp');
+        if (!isJapan) return;
 
-          if (nameStr.includes('season') || nameStr.includes('mùa ') || nameStr.includes('phần ') || slugStr.includes('phan-')) {
-            return false;
-          }
+        // Chặn tuyệt đối các series dài tập (có số tập nhiều như 12/12, 24 tập...)
+        if (eStr.includes('12/') || eStr.includes('24/') || eStr.includes('13/') || eStr.includes('25/') || 
+            eStr.includes('tập 12') || eStr.includes('tập 24') || eStr.includes('tập 02')) {
+          return;
+        }
+        if (nameStr.includes('season') || nameStr.includes('mùa ') || nameStr.includes('phần ') || slugStr.includes('phan-')) {
+          return;
+        }
 
-          // Bắt buộc phải mang định danh Movie, OVA, Special hoặc Full 1 tập duy nhất
-          const isTrueMovie = nameStr.includes('movie') || originName.includes('movie') || slugStr.includes('movie') ||
-                              nameStr.includes('ova') || originName.includes('ova') || slugStr.includes('ova') ||
-                              nameStr.includes('special') || typeStr.includes('movie') ||
-                              eStr.includes('full') || eStr.includes('1 tập') || eStr.includes('hoàn tất') || 
-                              eStr.includes('tập 1/1');
+        // Chấp nhận tất cả các phim đơn (single/movie) hoặc phim có thời lượng trọn gói
+        const isSingleOrMovie = typeStr === 'single' || typeStr === 'movie' || 
+                                eStr.includes('full') || eStr.includes('1 tập') || eStr.includes('hoàn tất') || 
+                                eStr.includes('1/1') || eStr.includes('tập 1') || 
+                                !eStr.includes('/');
 
-          return isTrueMovie;
-        })
-        .map(item => ({
-          id: `phimapi:${item.slug}`,
-          type: 'movie',
-          name: item.name,
-          poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
-          background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
-          description: `Movie Anime Chiếu Rạp HD`
-        }));
+        if (isSingleOrMovie) {
+          map.set(item.slug, {
+            id: `phimapi:${item.slug}`,
+            type: 'movie',
+            name: item.name,
+            poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
+            background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
+            description: `Movie Anime Chiếu Rạp HD`
+          });
+        }
+      });
+
+      metas = Array.from(map.values());
     } catch (e) {}
   }
   else if (id === 'stp_hoathinh') {
@@ -472,4 +487,4 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 
 const PORT = process.env.PORT || 7000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-                           
+        
