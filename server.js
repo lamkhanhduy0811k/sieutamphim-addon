@@ -37,7 +37,7 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio',
-  version: '6.0.0',
+  version: '7.0.0',
   name: 'Sưu Tầm Phim',
   description: 'Kho siêu khổng lồ 1000+ bộ mỗi danh mục: Phim Lẻ, Phim Bộ, Anime Nhật, Movie Anime & Hoạt hình Trung Quốc',
   resources: ['catalog', 'meta', 'stream'],
@@ -77,7 +77,7 @@ const MANIFEST = {
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v6.0.0 (Ultra Mega Scale)!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v7.0.0 (Strict Movie Filter)!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 const cacheStore = {
@@ -98,19 +98,16 @@ async function fetchAllMegaData() {
   let allMovies = [];
   let allSeries = [];
 
-  // Quét 25 trang Phim Lẻ (~1250 bộ)
   const moviePromises = [];
   for (let p = 1; p <= 25; p++) {
     moviePromises.push(axios.get(`https://phimapi.com/v1/api/danh-sach/phim-le?page=${p}&limit=50`, { timeout: 6000 }).catch(() => null));
   }
 
-  // Quét 25 trang Phim Bộ (~1250 bộ)
   const seriesPromises = [];
   for (let p = 1; p <= 25; p++) {
     seriesPromises.push(axios.get(`https://phimapi.com/v1/api/danh-sach/phim-bo?page=${p}&limit=50`, { timeout: 6000 }).catch(() => null));
   }
 
-  // Quét siêu sâu 55 trang Hoạt Hình (~2700 bộ để gom đủ 1000+ bộ cho Anime, Movie và TQ)
   const hhPromises = [];
   for (let p = 1; p <= 55; p++) {
     hhPromises.push(axios.get(`https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${p}&limit=50`, { timeout: 6000 }).catch(() => null));
@@ -186,17 +183,20 @@ async function fetchAllMegaData() {
         description: 'Anime Nhật Bản HD'
       });
 
+      // Chặn triệt để các phim live-action, phần tiếp theo, mùa mới hoặc anime bộ dài tập lọt vào
       if (nameStr.includes('lời nguyền') || nameStr.includes('ju-on') || nameStr.includes('narayama') || 
-          categoryStr.includes('live action') || contentStr.includes('live-action')) {
+          categoryStr.includes('live action') || contentStr.includes('live-action') ||
+          nameStr.includes('phần') || nameStr.includes('season') || nameStr.includes('mùa') ||
+          eStr.includes('tập') || eStr.includes('/')) {
         return;
       }
 
+      // Chỉ chấp nhận thực sự là Movie / Chiếu rạp / OVA / Special / Hoàn tất 1 tập
       const isMovie = item.type === 'movie' || item.type === 'single' ||
                       nameStr.includes('movie') || originName.includes('movie') || slugStr.includes('movie') ||
                       nameStr.includes('ova') || originName.includes('ova') || slugStr.includes('ova') ||
                       nameStr.includes('special') || nameStr.includes('chieu rap') || slugStr.includes('chieu-rap') ||
-                      eStr.includes('full') || eStr.includes('1 tập') || eStr.includes('hoàn tất') || eStr.includes('1/1') ||
-                      !eStr.includes('/'); // Các phim lẻ không có định dạng tập X/Y
+                      eStr.includes('full') || eStr.includes('1 tập') || eStr.includes('hoàn tất') || eStr.includes('1/1');
 
       if (isMovie) {
         animeMovieList.push({
