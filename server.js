@@ -37,9 +37,9 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio',
-  version: '1.5.0',
+  version: '1.6.0',
   name: 'Sưu Tầm Phim',
-  description: 'Xem phim HD nét cao từ SieuTamPhim.pro',
+  description: 'Xem phim HD, Phim bộ, Hoạt hình & Anime nét cao từ SieuTamPhim.pro',
   resources: ['catalog', 'meta', 'stream'],
   types: ['movie', 'series'],
   catalogs: [
@@ -56,6 +56,15 @@ const MANIFEST = {
       type: 'series',
       id: 'stp_latest_series',
       name: 'Sưu Tầm Phim - Phim Bộ',
+      extra: [
+        { name: 'search', isRequired: false },
+        { name: 'skip', isRequired: false }
+      ]
+    },
+    {
+      type: 'series',
+      id: 'stp_anime',
+      name: 'Sưu Tầm Phim - Anime',
       extra: [
         { name: 'search', isRequired: false },
         { name: 'skip', isRequired: false }
@@ -118,7 +127,7 @@ async function getBloggerFeed(label, query = '', skip = 0, limit = 100) {
       if (slug && !metas.some(m => m.id === `stp:${slug}`)) {
         metas.push({
           id: `stp:${slug}`,
-          type: label === 'Phim Bộ' || label === 'Hoạt Hình' ? 'series' : 'movie',
+          type: (label === 'Phim Bộ' || label === 'Hoạt Hình' || label === 'Anime') ? 'series' : 'movie',
           name: title,
           poster: posterHD || 'https://via.placeholder.com/300x450?text=No+Poster',
           background: posterHD,
@@ -140,22 +149,29 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
   const skip = parseInt(extra.skip) || 0;
 
   let label = null;
-  if (id === 'stp_hoathinh') label = 'Hoạt Hình';
+  if (id === 'stp_anime') label = 'Anime';
+  else if (id === 'stp_hoathinh') label = 'Hoạt Hình';
   else if (type === 'series') label = 'Phim Bộ';
   else label = 'Phim Lẻ';
 
   let metas = await getBloggerFeed(label, searchQuery, skip, 100);
 
-  if (metas.length === 0 && !searchQuery) {
-    metas = await getBloggerFeed(null, '', skip, 100);
+  // Nếu nhãn Anime trên trang ít phim, thử tìm nhãn Hoạt Hình
+  if (metas.length === 0 && id === 'stp_anime' && !searchQuery) {
+    metas = await getBloggerFeed('Hoạt Hình', '', skip, 100);
   }
 
+  // Backup kho mở rộng khi cuộn hoặc tìm kiếm
   if (metas.length < 20 || searchQuery) {
     try {
       let page = Math.floor(skip / 24) + 1;
+      let apiCategory = 'hoat-hinh';
+      if (type === 'movie') apiCategory = 'phim-le';
+      else if (type === 'series' && id === 'stp_latest_series') apiCategory = 'phim-bo';
+
       let apiUrl = searchQuery 
         ? `https://phimapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(searchQuery)}&limit=30`
-        : `https://phimapi.com/v1/api/danh-sach/${id === 'stp_hoathinh' ? 'hoat-hinh' : (type === 'series' ? 'phim-bo' : 'phim-le')}?page=${page}&limit=30`;
+        : `https://phimapi.com/v1/api/danh-sach/${apiCategory}?page=${page}&limit=30`;
 
       const apiRes = await axios.get(apiUrl, { timeout: 8000 });
       if (apiRes.data?.data?.items) {
@@ -169,7 +185,7 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
             name: item.name,
             poster: p,
             background: b || p,
-            description: `Phim HD`
+            description: `Anime / Hoạt hình HD`
           };
         });
 
@@ -209,7 +225,7 @@ app.get(['/meta/:type/:id.json', '/meta/:type/:id/:extra.json'], async (req, res
         meta: {
           id: `phimapi:${slug}`,
           type: type,
-          name: movie.name || 'Phim',
+          name: movie.name || 'Anime',
           poster: p,
           background: b || p,
           description: movie.content ? movie.content.replace(/<[^>]*>?/gm, '') : '',
@@ -331,4 +347,4 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 
 const PORT = process.env.PORT || 7000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-                          
+            
