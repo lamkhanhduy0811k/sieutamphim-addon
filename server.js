@@ -16,7 +16,7 @@ app.use((req, res, next) => {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio',
-  version: '1.2.0',
+  version: '1.3.0',
   name: 'Sưu Tầm Phim',
   description: 'Xem phim HD từ SieuTamPhim.pro',
   resources: ['catalog', 'meta', 'stream'],
@@ -39,7 +39,6 @@ const MANIFEST = {
 app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
-// Lấy danh sách bài viết qua Blogger Feed JSON API
 async function getBloggerFeed(label) {
   try {
     let feedUrl = 'https://www.sieutamphim.pro/feeds/posts/default?alt=json&max-results=30';
@@ -48,9 +47,7 @@ async function getBloggerFeed(label) {
     }
 
     const res = await axios.get(feedUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      },
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
       timeout: 8000
     });
 
@@ -75,7 +72,6 @@ async function getBloggerFeed(label) {
         if (poster.startsWith('//')) poster = 'https:' + poster;
       }
 
-      // Tạo ID sạch từ URL bài viết Blogspot
       const cleanPath = href.replace(/^https?:\/\/[^\/]+\//, '').replace(/\.html$/, '');
       const slug = cleanPath.replace(/\//g, '-');
 
@@ -92,25 +88,20 @@ async function getBloggerFeed(label) {
 
     return metas;
   } catch (err) {
-    console.log('Blogger feed error:', err.message);
     return [];
   }
 }
 
-// Route Catalog cho Nuvio
 app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (req, res) => {
   const { type } = req.params;
   const label = type === 'series' ? 'Phim Bộ' : 'Phim Lẻ';
 
-  // Lớp 1: Lấy phim theo nhãn thể loại
   let metas = await getBloggerFeed(label);
 
-  // Lớp 2: Lấy toàn bộ phim mới nhất nếu nhãn rỗng
   if (metas.length === 0) {
     metas = await getBloggerFeed(null);
   }
 
-  // Lớp 3: Dự phòng API nếu mạng có sự cố
   if (metas.length === 0) {
     try {
       const category = type === 'series' ? 'hoat-hinh' : 'phim-le';
@@ -125,35 +116,38 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
           description: `Phim HD`
         }));
       }
-    } catch (apiErr) {
-      console.log('API Backup error:', apiErr.message);
-    }
+    } catch (e) {}
   }
 
   res.json({ metas });
 });
 
-// Route Meta (Xem chi tiết phim)
+// Route Meta (Khai báo danh sách tập cho Nuvio)
 app.get(['/meta/:type/:id.json', '/meta/:type/:id/:extra.json'], async (req, res) => {
   const { id, type } = req.params;
 
   if (id.startsWith('phimapi:')) {
-    const slug = id.replace('phimapi:', '');
+    const slug = id.replace('phimapi:', '').split(':')[0];
     try {
       const { data } = await axios.get(`https://phimapi.com/phim/${slug}`, { timeout: 8000 });
       const movie = data?.movie || {};
-      const episodes = data?.episodes?.[0]?.server_data || [];
+      const epData = data?.episodes?.[0]?.server_data || [];
+
+      const videos = epData.map((ep, idx) => ({
+        id: `phimapi:${slug}:${ep.slug}`,
+        title: ep.name.includes('Tập') ? ep.name : `Tập ${ep.name}`,
+        season: 1,
+        episode: idx + 1
+      }));
+
       return res.json({
         meta: {
-          id: id,
+          id: `phimapi:${slug}`,
           type: type,
           name: movie.name || 'Phim',
-          poster: movie.poster_url,
+          poster: movie.poster_url?.startsWith('http') ? movie.poster_url : `https://phimimg.com/${movie.poster_url}`,
           description: movie.content ? movie.content.replace(/<[^>]*>?/gm, '') : '',
-          videos: episodes.map(ep => ({
-            id: `${id}:${ep.slug}`,
-            title: ep.name
-          }))
+          videos: videos.length > 0 ? videos : [{ id: `phimapi:${slug}:full`, title: 'Tập 1', season: 1, episode: 1 }]
         }
       });
     } catch (e) {
@@ -161,7 +155,8 @@ app.get(['/meta/:type/:id.json', '/meta/:type/:id/:extra.json'], async (req, res
     }
   }
 
-  const slug = id.replace('stp:', '');
+  const cleanId = id.split('::')[0];
+  const slug = cleanId.replace('stp:', '');
   const urlPath = slug.replace(/^(\d{4})-(\d{2})-(.*)$/, '$1/$2/$3.html');
   const pageUrl = `https://www.sieutamphim.pro/${urlPath}`;
 
@@ -172,15 +167,40 @@ app.get(['/meta/:type/:id.json', '/meta/:type/:id/:extra.json'], async (req, res
     });
     const $ = cheerio.load(data);
     const title = $('h1').text().trim() || $('title').text().trim();
-    const poster = $('.post-body img').first().attr('src') || '';
+    let poster = $('.post-body img').first().attr('src') || '';
+    if (poster && poster.startsWith('//')) poster = 'https:' + poster;
+
+    const videos = [];
+    $('.list-episode a, .episode-list a, .list-server a, #list-episode a, a.btn-episode, .halim-list-eps a').each((i, el) => {
+      const epTitle = $(el).text().trim() || `Tập ${i + 1}`;
+      const epUrl = $(el).attr('href') || $(el).attr('data-embed') || '';
+      if (epUrl) {
+        videos.push({
+          id: `stp:${slug}::${encodeURIComponent(epUrl)}::${i + 1}`,
+          title: epTitle,
+          season: 1,
+          episode: i + 1
+        });
+      }
+    });
+
+    if (videos.length === 0) {
+      videos.push({
+        id: `stp:${slug}::full::1`,
+        title: 'Tập 1 / Phim Full',
+        season: 1,
+        episode: 1
+      });
+    }
 
     res.json({
       meta: {
-        id: id,
+        id: `stp:${slug}`,
         type: type,
         name: title,
         poster: poster,
-        description: 'Xem phim HD trên SieuTamPhim'
+        description: $('meta[name="description"]').attr('content') || title,
+        videos: videos
       }
     });
   } catch (err) {
@@ -188,7 +208,7 @@ app.get(['/meta/:type/:id.json', '/meta/:type/:id/:extra.json'], async (req, res
   }
 });
 
-// Route Stream (Lấy link video)
+// Route Stream
 app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req, res) => {
   const { id } = req.params;
 
@@ -201,19 +221,32 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
       const episodes = data?.episodes?.[0]?.server_data || [];
       const ep = episodes.find(e => e.slug === epSlug) || episodes[0];
       return res.json({
-        streams: ep ? [{ name: 'Server HD', title: ep.name, url: ep.link_m3u8 }] : []
+        streams: ep ? [{ name: 'Server Full HD', title: ep.name, url: ep.link_m3u8 }] : []
       });
     } catch (e) {
       return res.json({ streams: [] });
     }
   }
 
-  const slug = id.replace('stp:', '');
-  const urlPath = slug.replace(/^(\d{4})-(\d{2})-(.*)$/, '$1/$2/$3.html');
-  const pageUrl = `https://www.sieutamphim.pro/${urlPath}`;
-
   try {
-    const { data } = await axios.get(pageUrl, {
+    let targetLink = '';
+    
+    if (id.includes('::')) {
+      const parts = id.split('::');
+      const rawUrl = decodeURIComponent(parts[1]);
+      if (rawUrl !== 'full') {
+        targetLink = rawUrl;
+      }
+    }
+
+    if (!targetLink) {
+      const cleanId = id.split('::')[0];
+      const slug = cleanId.replace('stp:', '');
+      const urlPath = slug.replace(/^(\d{4})-(\d{2})-(.*)$/, '$1/$2/$3.html');
+      targetLink = `https://www.sieutamphim.pro/${urlPath}`;
+    }
+
+    const { data } = await axios.get(targetLink, {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
       timeout: 8000
     });
@@ -234,4 +267,4 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 
 const PORT = process.env.PORT || 7000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-        
+    
