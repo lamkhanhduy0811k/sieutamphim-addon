@@ -26,10 +26,10 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio',
-  version: '21.1.4',
+  version: '21.1.5',
   name: 'Sưu Tầm Phim',
   description: 'Kho khổng lồ 500+ bộ mỗi danh mục: Phim Mới Cập Nhật, Phim Lẻ, Phim Bộ, Anime Nhật, Movie Anime & Hoạt hình Trung Quốc',
-  logo: 'https://i.imgur.com/gHhDk2i.jpg',
+  logo: 'https://i.ibb.co/689Q287/1000004533.jpg',
   resources: ['catalog', 'meta', 'stream'],
   types: ['movie', 'series'],
   catalogs: [
@@ -73,7 +73,7 @@ const MANIFEST = {
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.4!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.5!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 const cacheStore = {
@@ -253,7 +253,6 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
   const cdn = 'https://phimimg.com';
   const limit = 50;
 
-  // Khi có từ khóa tìm kiếm, chỉ trả về kết quả ở mục đầu tiên (stp_new_updates), các mục khác trả về rỗng
   if (searchQuery) {
     if (id !== 'stp_new_updates') {
       return res.json({ metas: [] });
@@ -373,4 +372,4 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 
 const PORT = process.env.PORT || 7000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-              
+  
