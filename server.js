@@ -37,7 +37,7 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio',
-  version: '3.9.0',
+  version: '4.0.0',
   name: 'Sưu Tầm Phim',
   description: 'Xem đầy đủ Phim Lẻ, Phim Bộ, Anime Nhật, Movie Anime & Hoạt hình Trung Quốc',
   resources: ['catalog', 'meta', 'stream'],
@@ -234,8 +234,8 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
   else if (id === 'stp_anime_movie') {
     try {
       let allItems = [];
-      // Quét sâu qua nhiều trang hoạt hình để gom đủ số lượng 100+ movie
-      for (let p = 1; p <= 25; p++) {
+      // Quét sâu qua 35 trang để gom đủ khoảng ~200 bộ movie anime chất lượng
+      for (let p = 1; p <= 35; p++) {
         try {
           const resHh = await axios.get(`https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${p}&limit=50`, { timeout: 5000 });
           if (resHh.data?.data?.items) allItems = allItems.concat(resHh.data.data.items);
@@ -258,19 +258,19 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
         const isJapan = cStr.includes('nhật bản') || cStr.includes('japan') || cStr.includes('jp');
         if (!isJapan) return;
 
-        // 2. Chặn triệt để các phim live-action, phim kinh dị người đóng bị gắn nhầm vào danh mục
+        // 2. Chặn triệt để phim live-action / kinh dị người đóng
         if (nameStr.includes('lời nguyền') || nameStr.includes('ju-on') || nameStr.includes('narayama') || 
             categoryStr.includes('live action') || contentStr.includes('live-action')) {
           return;
         }
 
-        // 3. Chặn tuyệt đối các series anime dài tập (12 tập, 24 tập, season...)
+        // 3. Chặn các series anime dài tập
         if (eStr.includes('12/') || eStr.includes('24/') || eStr.includes('13/') || eStr.includes('25/') || 
             eStr.includes('tập 12') || eStr.includes('tập 24') || nameStr.includes('season') || nameStr.includes('mùa ')) {
           return;
         }
 
-        // 4. Bắt buộc phải là phim lẻ / movie / ova / special hoặc có từ khóa chiếu rạp
+        // 4. Nhận diện các phim lẻ, movie, ova hoặc hoạt hình hoàn tất 1 tập
         const isMovie = item.type === 'movie' || item.type === 'single' ||
                         nameStr.includes('movie') || originName.includes('movie') || slugStr.includes('movie') ||
                         nameStr.includes('ova') || originName.includes('ova') || slugStr.includes('ova') ||
@@ -473,4 +473,4 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 
 const PORT = process.env.PORT || 7000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-            
+                                                                  
