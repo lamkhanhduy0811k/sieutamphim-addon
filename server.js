@@ -26,7 +26,7 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio.v2',
-  version: '21.1.38',
+  version: '21.1.39',
   name: 'Sưu Tầm Phim',
   description: 'Kho phim Vietsub, Lồng Tiếng & Thuyết Minh chất lượng cao. Cập nhật liên tục phim chiếu rạp, anime và truyền hình Á - Âu.',
   logo: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=500&auto=format&fit=crop&q=60',
@@ -115,7 +115,7 @@ const MANIFEST = {
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.38!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.39!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 function getCleanPlot(item) {
@@ -189,8 +189,8 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
     let items = [];
 
     if (id === 'stp_anime_movie') {
-      // Tự động quét gộp 5 trang hoạt hình đầu tiên để lọc ra nhiều movie anime Nhật Bản
-      const pagePromises = [1, 2, 3, 4, 5].map(p => 
+      // Quét gộp 15 trang hoạt hình đầu tiên để lấy kho movie anime cực khủng
+      const pagePromises = Array.from({ length: 15 }, (_, i) => i + 1).map(p => 
         axios.get(`https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${p}&limit=40`, { timeout: 4000 })
           .catch(() => ({ data: {} }))
       );
@@ -205,8 +205,9 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
         const cStr = JSON.stringify(i.country || '').toLowerCase();
         const epStr = (i.episode_current || '').toLowerCase();
         const typeStr = (i.type || '').toLowerCase();
-        const isJapan = cStr.includes('nhật bản') || cStr.includes('japan');
-        const isMovie = typeStr === 'single' || typeStr === 'movie' || epStr.includes('full') || epStr.includes('1 tập') || epStr.includes('tập full');
+        const nameStr = (i.name || '').toLowerCase();
+        const isJapan = cStr.includes('nhật bản') || cStr.includes('japan') || nameStr.includes('doraemon') || nameStr.includes('conan') || nameStr.includes('shin');
+        const isMovie = typeStr === 'single' || typeStr === 'movie' || epStr.includes('full') || epStr.includes('1 tập') || epStr.includes('tập full') || epStr.includes('hoàn tất');
         return isJapan && isMovie;
       });
     } else {
@@ -328,5 +329,5 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 });
 
 const PORT = process.env.PORT || 7000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Fast v21.1.38)`));
-        
+app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Fast v21.1.39)`));
+  
