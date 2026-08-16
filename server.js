@@ -26,7 +26,7 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio.v2',
-  version: '21.1.30',
+  version: '21.1.31',
   name: 'Sưu Tầm Phim',
   description: 'Addon xem phim đa dạng nguồn cho Nuvio TV',
   logo: 'https://i.ibb.co/689Q287/1000004533.jpg',
@@ -44,6 +44,12 @@ const MANIFEST = {
       id: 'stp_new_updates',
       name: 'Sưu Tầm Phim - Phim Mới & Tìm Kiếm',
       extra: [{ name: 'search', isRequired: false }, { name: 'skip', isRequired: false }]
+    },
+    {
+      type: 'series',
+      id: 'stp_longtieng',
+      name: 'Sưu Tầm Phim - Phim Lồng Tiếng',
+      extra: [{ name: 'skip', isRequired: false }]
     },
     {
       type: 'movie',
@@ -109,7 +115,7 @@ const MANIFEST = {
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.30!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.31!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 const cacheStore = {};
@@ -131,6 +137,16 @@ function isAnimation(item) {
          categoryStr.includes('hoathinh') || 
          categoryStr.includes('anime') ||
          slugStr.includes('hoat-hinh');
+}
+
+function isLongTieng(item) {
+  const nameStr = (item.name || '').toLowerCase();
+  const langStr = (item.lang || '').toLowerCase();
+  const epStr = (item.episode_current || '').toLowerCase();
+
+  return langStr.includes('lồng tiếng') || langStr.includes('thuyết minh') ||
+         nameStr.includes('lồng tiếng') || nameStr.includes('thuyết minh') ||
+         epStr.includes('lồng tiếng') || epStr.includes('thuyết minh');
 }
 
 function getCleanPlot(item) {
@@ -202,6 +218,11 @@ async function getCatalogItems(id) {
   if (id === 'stp_chieurap') {
     const raw = await fetchRawInBatches('https://phimapi.com/v1/api/danh-sach/phim-chieu-rap', 12);
     items = raw.map(i => createCatalogMeta(i, 'movie'));
+  } else if (id === 'stp_longtieng') {
+    const rawMovies = await fetchRawInBatches('https://phimapi.com/v1/api/danh-sach/phim-le', 12, isLongTieng);
+    const rawSeries = await fetchRawInBatches('https://phimapi.com/v1/api/danh-sach/phim-bo', 12, isLongTieng);
+    const combined = [...rawMovies, ...rawSeries];
+    items = combined.map(i => createCatalogMeta(i, i.type === 'single' ? 'movie' : 'series'));
   } else if (id === 'stp_vietnam') {
     const raw = await fetchRawInBatches('https://phimapi.com/v1/api/quoc-gia/viet-nam', 18, item => !isAnimation(item));
     items = raw.map(i => createCatalogMeta(i, 'series'));
@@ -487,5 +508,5 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 });
 
 const PORT = process.env.PORT || 7000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Clean v21.1.30)`));
-              
+app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Clean v21.1.31)`));
+                                        
