@@ -25,10 +25,10 @@ function parseExtra(extraStr) {
 }
 
 const MANIFEST = {
-  id: 'org.sieutamphim.nuvio',
-  version: '21.1.13',
-  name: 'Sưu Tầm Phim (Auto Meta & Đa Nguồn)',
-  description: 'Kho phim tích hợp Tự động bù đắp thông tin Giới thiệu, Logo, Thể loại và Đa nguồn phát',
+  id: 'org.sieutamphim.nuvio.v2',
+  version: '21.1.14',
+  name: 'Sưu Tầm Phim (Clear Cache & Full Meta)',
+  description: 'Phiên bản v2 tự động quét 3 nguồn thông tin (PhimAPI, Ophim, NguonC) và ép làm mới cache TV',
   logo: 'https://i.ibb.co/689Q287/1000004533.jpg',
   resources: ['catalog', 'meta', 'stream'],
   types: ['movie', 'series'],
@@ -73,7 +73,7 @@ const MANIFEST = {
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.13 (Auto Meta Enabled)!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.14!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 const cacheStore = {
@@ -315,16 +315,16 @@ app.get(['/meta/:type/:id.json', '/meta/:type/:id/:extra.json'], async (req, res
     let movie = null;
     let epData = [];
 
-    // 1. Quét dữ liệu từ nguồn PhimAPI
+    // Tầng 1: Lấy từ PhimAPI
     try {
-      const { data } = await axios.get(`https://phimapi.com/phim/${slug}`, { timeout: 6000 });
+      const { data } = await axios.get(`https://phimapi.com/phim/${slug}`, { timeout: 5000 });
       if (data?.movie) {
         movie = data.movie;
         epData = data?.episodes?.[0]?.server_data || [];
       }
     } catch (e) {}
 
-    // 2. Dự phòng: Nếu PhimAPI lỗi hoặc bài viết rỗng, quét tiếp Ophim để bù đắp dữ liệu
+    // Tầng 2: Quét Ophim
     if (!movie || !movie.content || movie.content.length < 15) {
       try {
         const { data: opData } = await axios.get(`https://ophim1.com/phim/${slug}`, { timeout: 4000 });
@@ -342,6 +342,20 @@ app.get(['/meta/:type/:id.json', '/meta/:type/:id/:extra.json'], async (req, res
       } catch (e) {}
     }
 
+    // Tầng 3: Quét NguonC
+    if (!movie || !movie.content || movie.content.length < 15) {
+      try {
+        const { data: ncData } = await axios.get(`https://phim.nguonc.com/api/film/${slug}`, { timeout: 4000 });
+        if (ncData?.movie) {
+          if (!movie) {
+            movie = ncData.movie;
+          } else if (ncData.movie.description) {
+            movie.content = ncData.movie.description;
+          }
+        }
+      } catch (e) {}
+    }
+
     if (!movie) return res.json({ meta: null });
 
     const p = movie.poster_url?.startsWith('http') ? movie.poster_url : `https://phimimg.com/${movie.poster_url}`;
@@ -350,7 +364,7 @@ app.get(['/meta/:type/:id.json', '/meta/:type/:id/:extra.json'], async (req, res
 
     const genres = Array.isArray(movie.category) 
       ? movie.category.map(c => c.name || c).filter(Boolean) 
-      : ['Phim HD'];
+      : ['Phim Vietsub'];
 
     const director = Array.isArray(movie.director) 
       ? movie.director.filter(d => d && d !== 'Đang cập nhật') 
@@ -360,14 +374,15 @@ app.get(['/meta/:type/:id.json', '/meta/:type/:id/:extra.json'], async (req, res
       ? movie.actor.filter(a => a && a !== 'Đang cập nhật') 
       : [];
 
-    let cleanDescription = movie.content 
-      ? movie.content.replace(/<[^>]*>?/gm, '').trim() 
-      : '';
+    let cleanDescription = (movie.content || movie.description || '')
+      .replace(/<[^>]*>?/gm, '')
+      .trim();
 
-    // Tự tạo tóm tắt thông minh nếu cả 2 nguồn đều để trống
-    if (!cleanDescription || cleanDescription === 'Đang cập nhật') {
-      const countryStr = Array.isArray(movie.country) ? movie.country.map(c => c.name).join(', ') : 'N/A';
-      cleanDescription = `• Tên gốc: ${movie.origin_name || movie.name}\n• Trạng thái: ${movie.episode_current || 'Hoàn tất'} (${movie.quality || 'FHD'})\n• Quốc gia: ${countryStr}\n• Năm phát hành: ${movie.year || 'N/A'}`;
+    // Tự động tạo bài giới thiệu định dạng đẹp nếu cả 3 nguồn đều trống
+    if (!cleanDescription || cleanDescription === 'Đang cập nhật' || cleanDescription.length < 10) {
+      const gStr = genres.length ? genres.join(', ') : 'Phim Hay';
+      const countryStr = Array.isArray(movie.country) ? movie.country.map(c => c.name || c).join(', ') : 'Châu Á';
+      cleanDescription = `🎬 [Thông Tin Phim]\n\n• Tên phim: ${movie.name || 'Đang cập nhật'}\n• Tên gốc: ${movie.origin_name || movie.name || 'N/A'}\n• Thể loại: ${gStr}\n• Trạng thái: ${movie.episode_current || 'Hoàn tất'} (${movie.quality || 'FHD'})\n• Quốc gia: ${countryStr}\n• Năm phát hành: ${movie.year || 'Mới cập nhật'}\n\nNội dung chi tiết đang được đồng bộ tự động. Bạn có thể bấm Phát để thưởng thức bộ phim ngay bây giờ!`;
     }
 
     const videos = epData.map((ep, idx) => {
@@ -467,5 +482,5 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 });
 
 const PORT = process.env.PORT || 7000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT} (Auto Meta v21.1.13)`));
-    
+app.listen(PORT, () => console.log(`Server running on port ${PORT} (Auto Meta v21.1.14)`));
+            
