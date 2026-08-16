@@ -70,7 +70,7 @@ const GENRE_KEYWORDS = {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio.v2',
-  version: '21.1.36',
+  version: '21.1.37',
   name: 'Sưu Tầm Phim',
   description: 'Kho phim Vietsub, Lồng Tiếng & Thuyết Minh chất lượng cao. Cập nhật liên tục phim chiếu rạp, anime và truyền hình Á - Âu.',
   logo: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=500&auto=format&fit=crop&q=60',
@@ -179,7 +179,7 @@ const MANIFEST = {
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.36!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.37!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 function getCleanPlot(item) {
@@ -239,6 +239,20 @@ function matchesGenreFilter(item, genreName, genreSlug) {
 
   const keywords = GENRE_KEYWORDS[genreName.toLowerCase()] || [genreName.toLowerCase(), genreSlug.toLowerCase()];
   return keywords.some(kw => catStr.includes(kw) || nameStr.includes(kw));
+}
+
+function isAnimationItem(item) {
+  if (!item) return false;
+  const typeStr = (item.type || '').toLowerCase();
+  if (typeStr === 'hoathinh' || typeStr === 'anime') return true;
+
+  const catStr = JSON.stringify(item.category || '').toLowerCase();
+  if (catStr.includes('hoạt hình') || catStr.includes('hoat-hinh') || catStr.includes('anime')) return true;
+
+  const nameStr = ((item.name || '') + ' ' + (item.origin_name || '')).toLowerCase();
+  if (nameStr.includes('anime') || nameStr.includes('hoạt hình')) return true;
+
+  return false;
 }
 
 function isCountryMatch(item, targetCountry) {
@@ -303,7 +317,7 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
     const isAnimeCatalog = (id === 'stp_anime' || id === 'stp_anime_m' || id === 'stp_anime_movie' || id === 'stp_hoathinh');
 
     if (isAnimeCatalog) {
-      // ĐỘC QUYỀN ANIME: CHỈ LẤY TỪ NGUỒN HOẠT HÌNH
+      // CHỈ LẤY ANIME / HOẠT HÌNH
       const startP = Math.max(1, (pageToFetch - 1) * 5 + 1);
       const pages = Array.from({ length: 10 }, (_, i) => startP + i);
 
@@ -340,7 +354,6 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
         return true;
       });
 
-      // Nếu bộ lọc từ khóa thẻ quá hẹp, trả về Anime thuần khớp định dạng & quốc gia
       if (filtered.length === 0 && selectedGenre) {
         filtered = rawAnimeItems.filter(i => {
           if (!isCountryMatch(i, targetCountry)) return false;
@@ -353,38 +366,55 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
 
       items = filtered;
 
-    } else if (selectedGenre && GENRE_SLUG_MAP[selectedGenre]) {
-      // PHIM THƯỜNG: LẤY TRỰC TIẾP TỪ API THỂ LOẠI
-      const genreSlug = GENRE_SLUG_MAP[selectedGenre];
-      const startP = Math.max(1, (pageToFetch - 1) * 3 + 1);
-      const pagesToFetch = [startP, startP + 1, startP + 2];
-
-      const responses = await Promise.all(
-        pagesToFetch.map(p =>
-          axios.get(`https://phimapi.com/v1/api/the-loai/${genreSlug}?page=${p}&limit=30`, { timeout: 3500 }).catch(() => null)
-        )
-      );
-
-      let fetchedItems = [];
-      responses.forEach(r => {
-        const list = r?.data?.data?.items || r?.data?.items || [];
-        fetchedItems = fetchedItems.concat(list);
-      });
-
-      const seenSlugs = new Set();
-      items = fetchedItems.filter(i => {
-        if (i && i.slug && !seenSlugs.has(i.slug)) {
-          seenSlugs.add(i.slug);
-          return true;
-        }
-        return false;
-      });
-
     } else {
-      // DÂN DỤNG NGUYÊN BẢN
-      const apiUrl = API_MAP[id] || `https://phimapi.com/danh-sach/phim-moi-cap-nhat`;
-      const { data } = await axios.get(`${apiUrl}?page=${pageToFetch}&limit=30`, { timeout: 3000 });
-      items = data?.data?.items || data?.items || [];
+      // PHIM NGƯỜI ĐÓNG (LIVE-ACTION): LOẠI BỎ TRIỆT ĐỂ ANIME/HOẠT HÌNH
+      let fetchedItems = [];
+
+      if (selectedGenre && GENRE_SLUG_MAP[selectedGenre]) {
+        const genreSlug = GENRE_SLUG_MAP[selectedGenre];
+        const startP = Math.max(1, (pageToFetch - 1) * 3 + 1);
+        const pagesToFetch = [startP, startP + 1, startP + 2, startP + 3];
+
+        const responses = await Promise.all(
+          pagesToFetch.map(p =>
+            axios.get(`https://phimapi.com/v1/api/the-loai/${genreSlug}?page=${p}&limit=30`, { timeout: 3500 }).catch(() => null)
+          )
+        );
+
+        responses.forEach(r => {
+          const list = r?.data?.data?.items || r?.data?.items || [];
+          fetchedItems = fetchedItems.concat(list);
+        });
+      } else {
+        const apiUrl = API_MAP[id] || `https://phimapi.com/danh-sach/phim-moi-cap-nhat`;
+        const { data } = await axios.get(`${apiUrl}?page=${pageToFetch}&limit=30`, { timeout: 3000 });
+        fetchedItems = data?.data?.items || data?.items || [];
+      }
+
+      const countryMap = {
+        'stp_vietnam': 'viet-nam',
+        'stp_hanquoc': 'han-quoc',
+        'stp_trungquoc': 'trung-quoc',
+        'stp_hongkong': 'hong-kong'
+      };
+      const requiredCountry = countryMap[id];
+      const seenSlugs = new Set();
+
+      items = fetchedItems.filter(i => {
+        if (!i || !i.slug || seenSlugs.has(i.slug)) return false;
+        
+        // CHẶN HOÀN TOÀN ANIME / HOẠT HÌNH
+        if (isAnimationItem(i)) return false;
+
+        if (requiredCountry) {
+          const cStr = JSON.stringify(i.country || '').toLowerCase();
+          const target = requiredCountry.replace('-', ' ');
+          if (!cStr.includes(target) && !cStr.includes(requiredCountry)) return false;
+        }
+
+        seenSlugs.add(i.slug);
+        return true;
+      });
     }
 
     const defaultType = (id === 'stp_chieurap' || id === 'stp_anime_movie' || id === 'stp_latest_movies') ? 'movie' : 'series';
@@ -491,5 +521,5 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 });
 
 const PORT = process.env.PORT || 7000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Fast v21.1.36)`));
-      
+app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Fast v21.1.37)`));
+    
