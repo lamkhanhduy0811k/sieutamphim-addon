@@ -52,7 +52,7 @@ const GENRE_SLUG_MAP = {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio.v2',
-  version: '21.1.32',
+  version: '21.1.33',
   name: 'Sưu Tầm Phim',
   description: 'Kho phim Vietsub, Lồng Tiếng & Thuyết Minh chất lượng cao. Cập nhật liên tục phim chiếu rạp, anime và truyền hình Á - Âu.',
   logo: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=500&auto=format&fit=crop&q=60',
@@ -161,7 +161,7 @@ const MANIFEST = {
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.32!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.33!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 function getCleanPlot(item) {
@@ -288,20 +288,23 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
       const seenSlugs = new Set();
       items = items.filter(i => {
         if (!i || !i.slug || seenSlugs.has(i.slug)) return false;
-        seenSlugs.add(i.slug);
 
         const cStr = JSON.stringify(i.country || '').toLowerCase();
         const catStr = JSON.stringify(i.category || '').toLowerCase();
         const typeStr = (i.type || '').toLowerCase();
 
-        // 1. Phân loại theo quốc gia
+        // 1. Kiểm tra nghiêm ngặt Hoạt Hình / Anime (Loại bỏ Live-Action)
+        const isAnimation = typeStr === 'hoathinh' || catStr.includes('hoạt hình') || catStr.includes('hoat-hinh') || catStr.includes('anime');
+        if (!isAnimation) return false;
+
+        // 2. Phân loại theo Quốc gia
         if (id === 'stp_hoathinh') {
           if (!cStr.includes('trung quốc') && !cStr.includes('china')) return false;
         } else {
           if (!cStr.includes('nhật bản') && !cStr.includes('japan')) return false;
         }
 
-        // 2. Phân biệt Movie Anime vs Anime Bộ
+        // 3. Phân biệt Movie Anime vs Anime Bộ
         const isMovie = isMovieAnimeFormat(i);
         if (id === 'stp_anime_movie') {
           if (!isMovie) return false;
@@ -309,13 +312,14 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
           if (isMovie) return false;
         }
 
-        // 3. Phân loại Thể Loại
+        // 4. Kiểm tra đúng Thể Loại
         if (selectedGenre) {
           const genreSlug = GENRE_SLUG_MAP[selectedGenre] || selectedGenre;
           const matchesGenre = catStr.includes(selectedGenre) || catStr.includes(genreSlug);
           if (!matchesGenre) return false;
         }
 
+        seenSlugs.add(i.slug);
         return true;
       });
 
@@ -434,5 +438,5 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 });
 
 const PORT = process.env.PORT || 7000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Fast v21.1.32)`));
-                     
+app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Fast v21.1.33)`));
+    
