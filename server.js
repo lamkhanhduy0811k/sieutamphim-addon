@@ -52,7 +52,7 @@ const GENRE_SLUG_MAP = {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio.v2',
-  version: '21.1.27',
+  version: '21.1.28',
   name: 'Sưu Tầm Phim',
   description: 'Kho phim Vietsub, Lồng Tiếng & Thuyết Minh chất lượng cao. Cập nhật liên tục phim chiếu rạp, anime và truyền hình Á - Âu.',
   logo: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=500&auto=format&fit=crop&q=60',
@@ -74,9 +74,16 @@ const MANIFEST = {
       extra: [{ name: 'search', isRequired: false }, { name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }]
     },
     {
-      type: 'series',
-      id: 'stp_longtieng',
-      name: 'Sưu Tầm Phim - Phim Lồng Tiếng',
+      type: 'movie',
+      id: 'stp_anime_m',
+      name: 'Sưu Tầm Phim - Anime Nhật Bản',
+      genres: GENRES,
+      extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }]
+    },
+    {
+      type: 'movie',
+      id: 'stp_anime_movie',
+      name: 'Sưu Tầm Phim - Movie Anime Chiếu Rạp',
       genres: GENRES,
       extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }]
     },
@@ -84,6 +91,34 @@ const MANIFEST = {
       type: 'movie',
       id: 'stp_chieurap',
       name: 'Sưu Tầm Phim - Phim Chiếu Rạp',
+      genres: GENRES,
+      extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }]
+    },
+    {
+      type: 'movie',
+      id: 'stp_latest_movies',
+      name: 'Sưu Tầm Phim - Phim Lẻ',
+      genres: GENRES,
+      extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }]
+    },
+    {
+      type: 'series',
+      id: 'stp_anime',
+      name: 'Sưu Tầm Phim - Anime Nhật Bản',
+      genres: GENRES,
+      extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }]
+    },
+    {
+      type: 'series',
+      id: 'stp_hoathinh',
+      name: 'Sưu Tầm Phim - Hoạt Hình Trung Quốc',
+      genres: GENRES,
+      extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }]
+    },
+    {
+      type: 'series',
+      id: 'stp_longtieng',
+      name: 'Sưu Tầm Phim - Phim Lồng Tiếng',
       genres: GENRES,
       extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }]
     },
@@ -117,34 +152,6 @@ const MANIFEST = {
     },
     {
       type: 'series',
-      id: 'stp_anime',
-      name: 'Sưu Tầm Phim - Anime Nhật Bản',
-      genres: GENRES,
-      extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }]
-    },
-    {
-      type: 'movie',
-      id: 'stp_anime_movie',
-      name: 'Sưu Tầm Phim - Movie Anime Chiếu Rạp',
-      genres: GENRES,
-      extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }]
-    },
-    {
-      type: 'series',
-      id: 'stp_hoathinh',
-      name: 'Sưu Tầm Phim - Hoạt Hình Trung Quốc',
-      genres: GENRES,
-      extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }]
-    },
-    {
-      type: 'movie',
-      id: 'stp_latest_movies',
-      name: 'Sưu Tầm Phim - Phim Lẻ',
-      genres: GENRES,
-      extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }]
-    },
-    {
-      type: 'series',
       id: 'stp_latest_series',
       name: 'Sưu Tầm Phim - Phim Bộ',
       genres: GENRES,
@@ -154,7 +161,7 @@ const MANIFEST = {
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.27!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.28!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 function getCleanPlot(item) {
@@ -199,6 +206,7 @@ const API_MAP = {
   'stp_trungquoc': 'https://phimapi.com/v1/api/quoc-gia/trung-quoc',
   'stp_hongkong': 'https://phimapi.com/v1/api/quoc-gia/hong-kong',
   'stp_anime': 'https://phimapi.com/v1/api/danh-sach/hoat-hinh',
+  'stp_anime_m': 'https://phimapi.com/v1/api/danh-sach/hoat-hinh',
   'stp_anime_movie': 'https://phimapi.com/v1/api/danh-sach/hoat-hinh',
   'stp_hoathinh': 'https://phimapi.com/v1/api/danh-sach/hoat-hinh',
   'stp_latest_movies': 'https://phimapi.com/v1/api/danh-sach/phim-le',
@@ -256,7 +264,7 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
           const list = r?.data?.data?.items || r?.data?.items || [];
           items = items.concat(list);
         });
-      } else if (id === 'stp_anime' || id === 'stp_hoathinh') {
+      } else if (id === 'stp_anime' || id === 'stp_anime_m' || id === 'stp_hoathinh') {
         const startP = (pageToFetch - 1) * 4 + 1;
         const pages = Array.from({ length: 4 }, (_, i) => startP + i);
         const responses = await Promise.all(
@@ -272,7 +280,7 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
       }
     }
 
-    if (id === 'stp_anime') {
+    if (id === 'stp_anime' || id === 'stp_anime_m') {
       items = items.filter(i => {
         const cStr = JSON.stringify(i.country || '').toLowerCase();
         return cStr.includes('nhật bản') || cStr.includes('japan');
@@ -300,7 +308,7 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
       });
     }
 
-    const defaultType = (id === 'stp_chieurap' || id === 'stp_anime_movie' || id === 'stp_latest_movies') ? 'movie' : 'series';
+    const defaultType = (id === 'stp_chieurap' || id === 'stp_anime_movie' || id === 'stp_anime_m' || id === 'stp_latest_movies') ? 'movie' : 'series';
     const metas = items.map(item => createCatalogMeta(item, defaultType));
     const responsePayload = { metas };
 
@@ -404,5 +412,5 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 });
 
 const PORT = process.env.PORT || 7000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Fast v21.1.27)`));
+app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Fast v21.1.28)`));
   
