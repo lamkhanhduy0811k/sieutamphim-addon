@@ -52,7 +52,7 @@ const GENRE_SLUG_MAP = {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio.v2',
-  version: '21.1.31',
+  version: '21.1.32',
   name: 'Sưu Tầm Phim',
   description: 'Kho phim Vietsub, Lồng Tiếng & Thuyết Minh chất lượng cao. Cập nhật liên tục phim chiếu rạp, anime và truyền hình Á - Âu.',
   logo: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=500&auto=format&fit=crop&q=60',
@@ -161,7 +161,7 @@ const MANIFEST = {
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.31!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.32!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 function getCleanPlot(item) {
@@ -196,6 +196,18 @@ function createCatalogMeta(item, defaultType) {
     releaseInfo: `${yearStr} • ${epStr}`,
     posterShape: 'poster'
   };
+}
+
+function isMovieAnimeFormat(item) {
+  const epStr = (item.episode_current || '').toLowerCase();
+  const nameStr = (item.name || '').toLowerCase();
+  const typeStr = (item.type || '').toLowerCase();
+
+  const isExplicitSingle = typeStr === 'single' || typeStr === 'movie';
+  const isMovieKeywords = epStr.includes('full') || epStr.includes('1 tập') || epStr.includes('phim ngắn') || nameStr.includes('movie');
+  const hasMultiEp = /tập\s*0*[2-9]|tập\s*[1-9]\d+/i.test(epStr);
+
+  return (isExplicitSingle || isMovieKeywords) && !hasMultiEp;
 }
 
 const API_MAP = {
@@ -248,80 +260,64 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
     const isAnimeCatalog = (id === 'stp_anime' || id === 'stp_anime_m' || id === 'stp_anime_movie' || id === 'stp_hoathinh');
 
     if (isAnimeCatalog) {
+      const startP = (pageToFetch - 1) * 6 + 1;
+      const pages = Array.from({ length: 6 }, (_, i) => startP + i);
+      let urls = [];
+
       if (selectedGenre && GENRE_SLUG_MAP[selectedGenre]) {
-        // Lọc theo Thể Loại chuyên sâu cho Anime
         const genreSlug = GENRE_SLUG_MAP[selectedGenre];
-        const startP = (pageToFetch - 1) * 6 + 1;
-        const pages = Array.from({ length: 6 }, (_, i) => startP + i);
-
-        const responses = await Promise.all(
-          pages.map(p => axios.get(`https://phimapi.com/v1/api/the-loai/${genreSlug}?page=${p}&limit=50`, { timeout: 3500 }).catch(() => null))
-        );
-
-        responses.forEach(r => {
-          const list = r?.data?.data?.items || [];
-          items = items.concat(list);
-        });
-
-        const seenSlugs = new Set();
-        items = items.filter(i => {
-          if (!i || !i.slug || seenSlugs.has(i.slug)) return false;
-          seenSlugs.add(i.slug);
-
-          const cStr = JSON.stringify(i.country || '').toLowerCase();
-          const catStr = JSON.stringify(i.category || '').toLowerCase();
-          const typeStr = (i.type || '').toLowerCase();
-
-          // Phải là Hoạt Hình / Anime (Loại bỏ Live-Action)
-          const isAnimation = catStr.includes('hoạt hình') || typeStr === 'hoathinh';
-          if (!isAnimation) return false;
-
-          // Lọc Quốc gia
-          if (id === 'stp_hoathinh') {
-            if (!cStr.includes('trung quốc') && !cStr.includes('china')) return false;
-          } else {
-            if (!cStr.includes('nhật bản') && !cStr.includes('japan')) return false;
-          }
-
-          // Lọc Movie nếu chọn mục Anime Movie
-          if (id === 'stp_anime_movie') {
-            const epStr = (i.episode_current || '').toLowerCase();
-            const nameStr = (i.name || '').toLowerCase();
-            const isSingle = typeStr === 'single' || typeStr === 'movie';
-            const isMovieLabel = epStr.includes('full') || epStr.includes('1 tập') || nameStr.includes('movie');
-            const hasSeriesEpisode = epStr.includes('tập') && !epStr.includes('1 tập') && !epStr.includes('full');
-            if (!((isSingle || isMovieLabel) && !hasSeriesEpisode)) return false;
-          }
-
-          return true;
+        pages.forEach(p => {
+          urls.push(`https://phimapi.com/v1/api/the-loai/${genreSlug}?page=${p}&limit=50`);
+          urls.push(`https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${p}&limit=50`);
         });
       } else {
-        // Mặc định lấy từ danh sách Hoạt Hình
-        const startP = (pageToFetch - 1) * 6 + 1;
-        const pages = Array.from({ length: 6 }, (_, i) => startP + i);
-
-        const responses = await Promise.all(
-          pages.map(p => axios.get(`https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${p}&limit=50`, { timeout: 3500 }).catch(() => null))
-        );
-
-        responses.forEach(r => {
-          const list = r?.data?.data?.items || r?.data?.items || [];
-          items = items.concat(list);
-        });
-
-        const seenSlugs = new Set();
-        items = items.filter(i => {
-          if (!i || !i.slug || seenSlugs.has(i.slug)) return false;
-          seenSlugs.add(i.slug);
-
-          const cStr = JSON.stringify(i.country || '').toLowerCase();
-          if (id === 'stp_hoathinh') {
-            return cStr.includes('trung quốc') || cStr.includes('china');
-          } else {
-            return cStr.includes('nhật bản') || cStr.includes('japan');
-          }
+        pages.forEach(p => {
+          urls.push(`https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${p}&limit=50`);
         });
       }
+
+      const responses = await Promise.all(
+        urls.map(url => axios.get(url, { timeout: 3500 }).catch(() => null))
+      );
+
+      responses.forEach(r => {
+        const list = r?.data?.data?.items || r?.data?.items || [];
+        items = items.concat(list);
+      });
+
+      const seenSlugs = new Set();
+      items = items.filter(i => {
+        if (!i || !i.slug || seenSlugs.has(i.slug)) return false;
+        seenSlugs.add(i.slug);
+
+        const cStr = JSON.stringify(i.country || '').toLowerCase();
+        const catStr = JSON.stringify(i.category || '').toLowerCase();
+        const typeStr = (i.type || '').toLowerCase();
+
+        // 1. Phân loại theo quốc gia
+        if (id === 'stp_hoathinh') {
+          if (!cStr.includes('trung quốc') && !cStr.includes('china')) return false;
+        } else {
+          if (!cStr.includes('nhật bản') && !cStr.includes('japan')) return false;
+        }
+
+        // 2. Phân biệt Movie Anime vs Anime Bộ
+        const isMovie = isMovieAnimeFormat(i);
+        if (id === 'stp_anime_movie') {
+          if (!isMovie) return false;
+        } else if (id === 'stp_anime') {
+          if (isMovie) return false;
+        }
+
+        // 3. Phân loại Thể Loại
+        if (selectedGenre) {
+          const genreSlug = GENRE_SLUG_MAP[selectedGenre] || selectedGenre;
+          const matchesGenre = catStr.includes(selectedGenre) || catStr.includes(genreSlug);
+          if (!matchesGenre) return false;
+        }
+
+        return true;
+      });
 
     } else if (selectedGenre && GENRE_SLUG_MAP[selectedGenre]) {
       const genreSlug = GENRE_SLUG_MAP[selectedGenre];
@@ -334,7 +330,7 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
       items = data?.data?.items || data?.items || [];
     }
 
-    const defaultType = (id === 'stp_chieurap' || id === 'stp_anime_movie' || id === 'stp_anime_m' || id === 'stp_latest_movies') ? 'movie' : 'series';
+    const defaultType = (id === 'stp_chieurap' || id === 'stp_anime_movie' || id === 'stp_latest_movies') ? 'movie' : 'series';
     const metas = items.map(item => createCatalogMeta(item, defaultType));
     const responsePayload = { metas };
 
@@ -438,5 +434,5 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 });
 
 const PORT = process.env.PORT || 7000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Fast v21.1.31)`));
-    
+app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Fast v21.1.32)`));
+                     
