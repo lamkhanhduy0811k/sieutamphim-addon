@@ -26,7 +26,7 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio.v2',
-  version: '21.1.45',
+  version: '21.1.46',
   name: 'Sưu Tầm Phim',
   description: 'Kho phim Vietsub, Lồng Tiếng & Thuyết Minh chất lượng cao. Cập nhật liên tục phim chiếu rạp, anime và truyền hình Á - Âu.',
   logo: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=500&auto=format&fit=crop&q=60',
@@ -48,7 +48,7 @@ const MANIFEST = {
     {
       type: 'series',
       id: 'stp_longtieng',
-      name: 'Sưu Tầm Phim - Phim Lồng Tiếng',
+      name: 'Sưu Tầm Phim - Phim Lồng Tiếng & Thuyết Minh',
       extra: [{ name: 'skip', isRequired: false }]
     },
     {
@@ -96,7 +96,7 @@ const MANIFEST = {
     {
       type: 'series',
       id: 'stp_hoathinh',
-      name: 'Sưu Tầm Phim - Hoạt Hình Trung Quốc',
+      name: 'Sưu Tầm Phim - Hoạt Hình Trung Quốc (3D)',
       extra: [{ name: 'skip', isRequired: false }]
     },
     {
@@ -115,7 +115,7 @@ const MANIFEST = {
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.45!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.46!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 function getCleanPlot(item) {
@@ -154,63 +154,105 @@ function createCatalogMeta(item, defaultType) {
 
 const API_MAP = {
   'stp_chieurap': 'https://phimapi.com/v1/api/danh-sach/phim-chieu-rap',
-  'stp_longtieng': 'https://phimapi.com/v1/api/danh-sach/phim-le',
   'stp_vietnam': 'https://phimapi.com/v1/api/quoc-gia/viet-nam',
   'stp_hanquoc': 'https://phimapi.com/v1/api/quoc-gia/han-quoc',
   'stp_trungquoc': 'https://phimapi.com/v1/api/quoc-gia/trung-quoc',
   'stp_hongkong': 'https://phimapi.com/v1/api/quoc-gia/hong-kong',
   'stp_anime': 'https://phimapi.com/v1/api/danh-sach/hoat-hinh',
-  'stp_anime_movie': 'https://phimapi.com/v1/api/danh-sach/hoat-hinh',
-  'stp_hoathinh': 'https://phimapi.com/v1/api/danh-sach/hoat-hinh',
   'stp_latest_movies': 'https://phimapi.com/v1/api/danh-sach/phim-le',
   'stp_latest_series': 'https://phimapi.com/v1/api/danh-sach/phim-bo',
   'stp_hot': 'https://phimapi.com/danh-sach/phim-moi-cap-nhat'
 };
 
-// Cơ chế Cache bộ nhớ đệm giúp tải hàng trăm bộ movie anime siêu nhanh, không gây nghẽn mạng
+// Các bộ nhớ đệm thông minh cho Movie Anime, Hoạt Hình Trung Quốc và Phim Lồng Tiếng
 let animeMovieCache = [];
-let isCacheLoaded = false;
+let isAnimeMovieLoaded = false;
+
+let hoatHinhCache = [];
+let isHoatHinhLoaded = false;
+
+let longTiengCache = [];
+let isLongTiengLoaded = false;
 
 async function loadAnimeMovieCache() {
-  if (isCacheLoaded && animeMovieCache.length > 0) return;
+  if (isAnimeMovieLoaded && animeMovieCache.length > 0) return;
   try {
-    const totalPages = 120;
-    const batchSize = 15;
     let allItems = [];
-    for (let i = 0; i < totalPages; i += batchSize) {
-      const batch = Array.from({ length: Math.min(batchSize, totalPages - i) }, (_, idx) => i + idx + 1);
-      const promises = batch.map(p => 
-        axios.get(`https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${p}&limit=50`, { timeout: 3500 })
-          .catch(() => ({ data: {} }))
-      );
+    for (let i = 0; i < 120; i += 15) {
+      const batch = Array.from({ length: Math.min(15, 120 - i) }, (_, idx) => i + idx + 1);
+      const promises = batch.map(p => axios.get(`https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${p}&limit=50`, { timeout: 3500 }).catch(() => ({ data: {} })));
       const results = await Promise.all(promises);
       results.forEach(r => {
         const list = r.data?.data?.items || r.data?.items || [];
         allItems = allItems.concat(list);
       });
     }
-
     animeMovieCache = allItems.filter(i => {
       const cStr = JSON.stringify(i.country || '').toLowerCase();
       const epStr = (i.episode_current || '').toLowerCase();
       const typeStr = (i.type || '').toLowerCase();
       const nameStr = (i.name || '').toLowerCase();
-
       const isJapan = cStr.includes('nhật bản') || cStr.includes('japan');
       const isSingle = typeStr === 'single' || typeStr === 'movie';
       const isMovieLabel = epStr.includes('full') || epStr.includes('1 tập') || epStr.includes('tập full') || nameStr.includes('movie');
-      
       const hasSeriesEpisode = epStr.includes('tập') && !epStr.includes('1 tập') && !epStr.includes('full') && !epStr.includes('tập full');
       const hasSeason = nameStr.includes('phần ') || nameStr.includes('season ');
-
       return isJapan && (isSingle || isMovieLabel) && !hasSeriesEpisode && !hasSeason;
     });
-    isCacheLoaded = true;
+    isAnimeMovieLoaded = true;
   } catch (e) {}
 }
 
-// Tải ngầm cache ngay khi khởi động server
+async function loadHoatHinhCache() {
+  if (isHoatHinhLoaded && hoatHinhCache.length > 0) return;
+  try {
+    let allItems = [];
+    for (let i = 0; i < 100; i += 15) {
+      const batch = Array.from({ length: Math.min(15, 100 - i) }, (_, idx) => i + idx + 1);
+      const promises = batch.map(p => axios.get(`https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${p}&limit=50`, { timeout: 3500 }).catch(() => ({ data: {} })));
+      const results = await Promise.all(promises);
+      results.forEach(r => {
+        const list = r.data?.data?.items || r.data?.items || [];
+        allItems = allItems.concat(list);
+      });
+    }
+    hoatHinhCache = allItems.filter(i => {
+      const cStr = JSON.stringify(i.country || '').toLowerCase();
+      return cStr.includes('trung quốc') || cStr.includes('china');
+    });
+    isHoatHinhLoaded = true;
+  } catch (e) {}
+}
+
+async function loadLongTiengCache() {
+  if (isLongTiengLoaded && longTiengCache.length > 0) return;
+  try {
+    let allItems = [];
+    for (let i = 0; i < 70; i += 15) {
+      const batch = Array.from({ length: Math.min(15, 70 - i) }, (_, idx) => i + idx + 1);
+      const promises = batch.map(p => axios.get(`https://phimapi.com/danh-sach/phim-moi-cap-nhat?page=${p}`, { timeout: 3500 }).catch(() => ({ data: {} })));
+      const results = await Promise.all(promises);
+      results.forEach(r => {
+        const list = r.data?.items || [];
+        allItems = allItems.concat(list);
+      });
+    }
+    longTiengCache = allItems.filter(i => {
+      const epStr = (i.episode_current || '').toLowerCase();
+      const nameStr = (i.name || '').toLowerCase();
+      const descStr = (i.content || i.description || '').toLowerCase();
+      return epStr.includes('lồng tiếng') || epStr.includes('thuyết minh') || 
+             nameStr.includes('lồng tiếng') || nameStr.includes('thuyết minh') ||
+             descStr.includes('lồng tiếng') || descStr.includes('thuyết minh');
+    });
+    isLongTiengLoaded = true;
+  } catch (e) {}
+}
+
+// Khởi chạy tải ngầm cache ngay khi server bật
 loadAnimeMovieCache();
+loadHoatHinhCache();
+loadLongTiengCache();
 
 app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (req, res) => {
   const { id, extra: extraStr } = req.params;
@@ -236,6 +278,12 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
     if (id === 'stp_anime_movie') {
       await loadAnimeMovieCache();
       items = animeMovieCache.slice(skip, skip + 40);
+    } else if (id === 'stp_hoathinh') {
+      await loadHoatHinhCache();
+      items = hoatHinhCache.slice(skip, skip + 40);
+    } else if (id === 'stp_longtieng') {
+      await loadLongTiengCache();
+      items = longTiengCache.slice(skip, skip + 40);
     } else {
       const pageToFetch = Math.floor(skip / 30) + 1;
       const apiUrl = API_MAP[id] || `https://phimapi.com/danh-sach/phim-moi-cap-nhat`;
@@ -246,11 +294,6 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
         items = items.filter(i => {
           const cStr = JSON.stringify(i.country || '').toLowerCase();
           return cStr.includes('nhật bản') || cStr.includes('japan');
-        });
-      } else if (id === 'stp_hoathinh') {
-        items = items.filter(i => {
-          const cStr = JSON.stringify(i.country || '').toLowerCase();
-          return cStr.includes('trung quốc') || cStr.includes('china');
         });
       }
     }
@@ -355,5 +398,5 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 });
 
 const PORT = process.env.PORT || 7000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Fast v21.1.45)`));
+app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Fast v21.1.46)`));
       
