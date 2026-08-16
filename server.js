@@ -26,9 +26,9 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio.v2',
-  version: '21.1.23',
+  version: '21.1.24',
   name: 'Sưu Tầm Phim',
-  description: 'Tối ưu danh mục ngắn gọn, sửa trùng lặp mục Phim Hot Thịnh Hành cho Nuvio TV',
+  description: 'Khôi phục danh mục Anime Nhật Bản và tối ưu phân loại cho Nuvio TV',
   logo: 'https://i.ibb.co/689Q287/1000004533.jpg',
   resources: ['catalog', 'meta', 'stream'],
   types: ['movie', 'series'],
@@ -46,6 +46,18 @@ const MANIFEST = {
       extra: [{ name: 'search', isRequired: false }, { name: 'skip', isRequired: false }]
     },
     {
+      type: 'series',
+      id: 'stp_anime',
+      name: 'Sưu Tầm Phim - Anime Nhật Bản',
+      extra: [{ name: 'skip', isRequired: false }]
+    },
+    {
+      type: 'movie',
+      id: 'stp_anime_movie',
+      name: 'Sưu Tầm Phim - Movie Anime Chiếu Rạp',
+      extra: [{ name: 'skip', isRequired: false }]
+    },
+    {
       type: 'movie',
       id: 'stp_latest_movies',
       name: 'Sưu Tầm Phim - Phim Lẻ',
@@ -59,18 +71,6 @@ const MANIFEST = {
     },
     {
       type: 'series',
-      id: 'stp_anime',
-      name: 'Sưu Tầm Phim - Anime Nhật Bản',
-      extra: [{ name: 'skip', isRequired: false }]
-    },
-    {
-      type: 'movie',
-      id: 'stp_anime_movie',
-      name: 'Sưu Tầm Phim - Movie Anime Chiếu Rạp',
-      extra: [{ name: 'skip', isRequired: false }]
-    },
-    {
-      type: 'series',
       id: 'stp_hoathinh',
       name: 'Sưu Tầm Phim - Hoạt Hình 3D Trung Quốc',
       extra: [{ name: 'skip', isRequired: false }]
@@ -79,7 +79,7 @@ const MANIFEST = {
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.23!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.24!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 const cacheStore = {
@@ -191,15 +191,18 @@ async function loadAllData() {
     hhRes.forEach(res => {
       if (res?.data?.data?.items) {
         res.data.data.items.forEach(item => {
-          const cStr = JSON.stringify(item.category || '').toLowerCase();
+          const categoryStr = JSON.stringify(item.category || '').toLowerCase();
+          const countryStr = JSON.stringify(item.country || '').toLowerCase();
           const nameStr = (item.name || '').toLowerCase();
           const originName = (item.origin_name || '').toLowerCase();
           const slugStr = (item.slug || '').toLowerCase();
-          const categoryStr = JSON.stringify(item.category || '').toLowerCase();
           const contentStr = (item.content || '').toLowerCase();
           const eStr = (item.episode_current || '').toLowerCase();
 
-          const isJapan = cStr.includes('nhật bản') || cStr.includes('japan') || cStr.includes('jp');
+          // Lọc chính xác phim Nhật Bản từ quốc gia hoặc thể loại
+          const isJapan = countryStr.includes('nhật bản') || countryStr.includes('japan') || countryStr.includes('jp') ||
+                          categoryStr.includes('nhật bản') || categoryStr.includes('anime') ||
+                          nameStr.includes('anime') || slugStr.includes('anime');
 
           if (isJapan) {
             animeList.push(createCatalogMeta(item, 'series'));
@@ -230,7 +233,7 @@ async function loadAllData() {
       }
     });
 
-    // Tạo danh sách Phim Hot: Đan xen 1 Phim Lẻ -> 1 Phim Bộ -> 1 Movie Anime để tránh lặp lại
+    // Phim Hot đan xen đa dạng
     const hotList = [];
     const seenSlugs = new Set();
     const maxLen = Math.max(allMovies.length, allSeries.length, animeMovieList.length);
@@ -479,5 +482,5 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 });
 
 const PORT = process.env.PORT || 7000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Clean v21.1.23)`));
-                                           
+app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Clean v21.1.24)`));
+            
