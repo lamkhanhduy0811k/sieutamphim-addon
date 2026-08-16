@@ -26,9 +26,9 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio.v2',
-  version: '21.1.16',
-  name: 'Sưu Tầm Phim (Full Catalog Logo & Plot)',
-  description: 'Hiển thị logo phim và đoạn tóm tắt nội dung ngay màn hình chính TV',
+  version: '21.1.18',
+  name: 'Sưu Tầm Phim (Nuvio Clean UI)',
+  description: 'Hiển thị tên phim, thể loại và tóm tắt nội dung chuẩn đẹp trên Nuvio TV',
   logo: 'https://i.ibb.co/689Q287/1000004533.jpg',
   resources: ['catalog', 'meta', 'stream'],
   types: ['movie', 'series'],
@@ -73,7 +73,7 @@ const MANIFEST = {
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.16!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.18!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 const cacheStore = {
@@ -107,14 +107,23 @@ function createCatalogMeta(item, defaultType) {
   const p = item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`;
   const b = item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`;
   
+  const genres = Array.isArray(item.category) 
+    ? item.category.map(c => c.name || c).filter(Boolean) 
+    : ['Phim Vietsub'];
+
+  const yearStr = item.year ? String(item.year) : '2026';
+  const epStr = item.episode_current || 'HD';
+
   return {
     id: `phimapi:${item.slug}`,
     type: item.type === 'single' ? 'movie' : (item.type === 'series' ? 'series' : defaultType),
     name: item.name,
     poster: p,
     background: b || p,
-    logo: p,
-    description: getCleanPlot(item)
+    description: getCleanPlot(item),
+    genres: genres,
+    releaseInfo: `${yearStr} • ${epStr}`,
+    posterShape: 'poster'
   };
 }
 
@@ -379,7 +388,6 @@ app.get(['/meta/:type/:id.json', '/meta/:type/:id/:extra.json'], async (req, res
         name: movie.name || 'Phim',
         poster: p,
         background: thumbImg,
-        logo: p,
         description: cleanDescription,
         genres: genres,
         director: director,
@@ -442,5 +450,5 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 });
 
 const PORT = process.env.PORT || 7000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT} (Full Catalog Logo & Plot v21.1.16)`));
-      
+app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Clean UI v21.1.18)`));
+          
