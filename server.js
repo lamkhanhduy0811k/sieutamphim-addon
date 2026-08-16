@@ -26,9 +26,9 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio.v2',
-  version: '21.1.18',
-  name: 'Sưu Tầm Phim (Nuvio Clean UI)',
-  description: 'Hiển thị tên phim, thể loại và tóm tắt nội dung chuẩn đẹp trên Nuvio TV',
+  version: '21.1.19',
+  name: 'Sưu Tầm Phim',
+  description: 'Tối ưu danh mục ngắn gọn, hiển thị tiêu đề và tóm tắt chuẩn nét cho Nuvio TV',
   logo: 'https://i.ibb.co/689Q287/1000004533.jpg',
   resources: ['catalog', 'meta', 'stream'],
   types: ['movie', 'series'],
@@ -42,38 +42,38 @@ const MANIFEST = {
     {
       type: 'movie',
       id: 'stp_latest_movies',
-      name: 'Sưu Tầm Phim - Phim Lẻ (500+ Bộ)',
+      name: 'Sưu Tầm Phim - Phim Lẻ',
       extra: [{ name: 'skip', isRequired: false }]
     },
     {
       type: 'series',
       id: 'stp_latest_series',
-      name: 'Sưu Tầm Phim - Phim Bộ (500+ Bộ)',
+      name: 'Sưu Tầm Phim - Phim Bộ',
       extra: [{ name: 'skip', isRequired: false }]
     },
     {
       type: 'series',
       id: 'stp_anime',
-      name: 'Sưu Tầm Phim - Anime Nhật Bản (500+ Bộ)',
+      name: 'Sưu Tầm Phim - Anime Nhật Bản',
       extra: [{ name: 'skip', isRequired: false }]
     },
     {
       type: 'movie',
       id: 'stp_anime_movie',
-      name: 'Sưu Tầm Phim - Movie Anime Chiếu Rạp (500+ Bộ)',
+      name: 'Sưu Tầm Phim - Movie Anime Chiếu Rạp',
       extra: [{ name: 'skip', isRequired: false }]
     },
     {
       type: 'series',
       id: 'stp_hoathinh',
-      name: 'Sưu Tầm Phim - Hoạt Hình 3D Trung Quốc (500+ Bộ)',
+      name: 'Sưu Tầm Phim - Hoạt Hình 3D Trung Quốc',
       extra: [{ name: 'skip', isRequired: false }]
     }
   ],
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.18!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.19!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 const cacheStore = {
@@ -450,5 +450,5 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 });
 
 const PORT = process.env.PORT || 7000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Clean UI v21.1.18)`));
-          
+app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Clean v21.1.19)`));
+        
