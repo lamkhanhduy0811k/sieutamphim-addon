@@ -26,9 +26,9 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio',
-  version: '21.1.9',
-  name: 'Sưu Tầm Phim',
-  description: 'Kho khổng lồ 500+ bộ mỗi danh mục: Phim Mới Cập Nhật, Phim Lẻ, Phim Bộ, Anime Nhật, Movie Anime & Hoạt hình Trung Quốc',
+  version: '21.1.12',
+  name: 'Sưu Tầm Phim (Full Meta & Đa Nguồn)',
+  description: 'Kho phim tích hợp đầy đủ Giới thiệu, Logo, Thể loại và Đa nguồn phát dự phòng cho TV',
   logo: 'https://i.ibb.co/689Q287/1000004533.jpg',
   resources: ['catalog', 'meta', 'stream'],
   types: ['movie', 'series'],
@@ -73,7 +73,7 @@ const MANIFEST = {
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.9!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.12 (Full Meta & Multi-Source)!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 const cacheStore = {
@@ -129,7 +129,7 @@ async function loadAllData() {
           name: item.name,
           poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
           background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
-          description: `Cập nhật: ${item.episode_current || 'HD'}`
+          description: `${item.origin_name ? item.origin_name + ' • ' : ''}${item.episode_current || 'HD'}`
         });
       });
     }
@@ -149,7 +149,7 @@ async function loadAllData() {
             name: item.name,
             poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
             background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
-            description: 'Phim Lẻ HD'
+            description: `${item.origin_name ? item.origin_name + ' • ' : ''}Năm: ${item.year || 'N/A'}`
           });
         });
       }
@@ -164,7 +164,7 @@ async function loadAllData() {
             name: item.name,
             poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
             background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
-            description: 'Phim Bộ HD'
+            description: `${item.origin_name ? item.origin_name + ' • ' : ''}${item.episode_current || 'Phim Bộ HD'}`
           });
         });
       }
@@ -184,14 +184,16 @@ async function loadAllData() {
           const isJapan = cStr.includes('nhật bản') || cStr.includes('japan') || cStr.includes('jp');
 
           if (isJapan) {
-            animeList.push({
+            const animeItem = {
               id: `phimapi:${item.slug}`,
               type: 'series',
               name: item.name,
               poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
               background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
-              description: 'Anime Nhật Bản HD'
-            });
+              description: `${item.origin_name ? item.origin_name + ' • ' : ''}${item.episode_current || 'Anime Nhật HD'}`
+            };
+
+            animeList.push(animeItem);
 
             const hasBlacklistedWord = strictBlacklist.some(kw => nameStr.includes(kw) || slugStr.includes(kw));
             if (hasBlacklistedWord) return;
@@ -216,7 +218,7 @@ async function loadAllData() {
                 name: item.name,
                 poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
                 background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
-                description: 'Movie Anime Chiếu Rạp HD'
+                description: `${item.origin_name ? item.origin_name + ' • ' : ''}Movie Chiếu Rạp HD`
               });
             }
           } else {
@@ -226,7 +228,7 @@ async function loadAllData() {
               name: item.name,
               poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
               background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
-              description: 'Hoạt hình Trung Quốc HD'
+              description: `${item.origin_name ? item.origin_name + ' • ' : ''}${item.episode_current || 'Hoạt Hình 3D HD'}`
             });
           }
         });
@@ -267,7 +269,7 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
         name: item.name,
         poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
         background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
-        description: `Năm: ${item.year || 'HD'}`
+        description: `${item.origin_name ? item.origin_name + ' • ' : ''}Năm: ${item.year || 'HD'}`
       }));
       return res.json({ metas });
     } catch (e) {
@@ -286,7 +288,7 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
           name: item.name,
           poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
           background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
-          description: `Cập nhật: ${item.episode_current || 'HD'}`
+          description: `${item.origin_name ? item.origin_name + ' • ' : ''}${item.episode_current || 'HD'}`
         }));
         return res.json({ metas });
       }
@@ -321,22 +323,30 @@ app.get(['/meta/:type/:id.json', '/meta/:type/:id/:extra.json'], async (req, res
       const b = movie.thumb_url?.startsWith('http') ? movie.thumb_url : `https://phimimg.com/${movie.thumb_url}`;
       const thumbImg = b || p;
 
+      // Chuẩn hóa Thể loại, Đạo diễn, Diễn viên
+      const genres = Array.isArray(movie.category) ? movie.category.map(c => c.name) : [];
+      const director = Array.isArray(movie.director) ? movie.director : (movie.director ? [movie.director] : []);
+      const cast = Array.isArray(movie.actor) ? movie.actor : (movie.actor ? [movie.actor] : []);
+
+      // Làm sạch nội dung giới thiệu phim (xóa thẻ HTML)
+      const cleanDescription = movie.content 
+        ? movie.content.replace(/<[^>]*>?/gm, '').trim() 
+        : 'Chưa có thông tin giới thiệu cho bộ phim này.';
+
       const videos = epData.map((ep, idx) => {
         let seasonNum = 1;
         let episodeNum = idx + 1;
         const lowerName = (ep.name || '').toLowerCase();
         
-        const textMatch = lowerName.match(/(?:phần|season|mùa)\s*([ivx0-9]+)/);
+        const textMatch = lowerName.match(/(?:phần|season|mùa|ss)\s*([ivx0-9]+)/);
         if (textMatch) {
             const roman = { 'i': 1, 'ii': 2, 'iii': 3, 'iv': 4, 'v': 5, 'vi': 6, 'vii': 7, 'viii': 8, 'ix': 9, 'x': 10 };
             seasonNum = roman[textMatch[1]] || parseInt(textMatch[1]) || 1;
-            const epMatch = lowerName.match(/tập\s*(\d+)/);
-            if (epMatch) episodeNum = parseInt(epMatch[1]);
-        } else {
-            if (epData.length > 24) {
-                seasonNum = Math.floor(idx / 24) + 1;
-                episodeNum = (idx % 24) + 1;
-            }
+        }
+
+        const epMatch = lowerName.match(/(?:tập|ep)\s*(\d+)/);
+        if (epMatch) {
+            episodeNum = parseInt(epMatch[1]);
         }
 
         return {
@@ -355,7 +365,12 @@ app.get(['/meta/:type/:id.json', '/meta/:type/:id/:extra.json'], async (req, res
           name: movie.name || 'Phim',
           poster: p,
           background: thumbImg,
-          description: movie.content ? movie.content.replace(/<[^>]*>?/gm, '') : '',
+          logo: p,
+          description: cleanDescription,
+          genres: genres,
+          director: director,
+          cast: cast,
+          releaseInfo: movie.year ? String(movie.year) : undefined,
           videos: videos
         }
       });
@@ -374,21 +389,49 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
     const parts = id.split(':');
     const slug = parts[1];
     const epSlug = parts[2];
+    
+    let streams = [];
+
+    // Nguồn 1: PhimAPI chính
     try {
-      const { data } = await axios.get(`https://phimapi.com/phim/${slug}`, { timeout: 8000 });
-      const episodes = data?.episodes?.[0]?.server_data || [];
-      const ep = episodes.find(e => e.slug === epSlug) || episodes[0];
-      return res.json({
-        streams: ep ? [{ name: 'Server Full HD', title: ep.name, url: ep.link_m3u8 }] : []
+      const { data } = await axios.get(`https://phimapi.com/phim/${slug}`, { timeout: 5000 });
+      const servers = data?.episodes || [];
+      servers.forEach((srv, sIdx) => {
+        const episodes = srv.server_data || [];
+        const ep = episodes.find(e => e.slug === epSlug) || episodes[0];
+        if (ep && ep.link_m3u8) {
+          streams.push({
+            name: `Server FHD [${srv.server_name || `Nguồn ${sIdx + 1}`}]`,
+            title: ep.name || 'Phát chính',
+            url: ep.link_m3u8
+          });
+        }
       });
-    } catch (e) {
-      return res.json({ streams: [] });
-    }
+    } catch (e) {}
+
+    // Nguồn 2: Ophim API dự phòng
+    try {
+      const { data: opData } = await axios.get(`https://ophim1.com/phim/${slug}`, { timeout: 4000 });
+      const opServers = opData?.episodes || [];
+      opServers.forEach((srv, sIdx) => {
+        const episodes = srv.server_data || [];
+        const ep = episodes.find(e => e.slug === epSlug) || episodes[0];
+        if (ep && ep.link_m3u8) {
+          streams.push({
+            name: `Server Dự Phòng [Ophim - ${srv.server_name || 'VIP'}]`,
+            title: ep.name || 'Dự phòng',
+            url: ep.link_m3u8
+          });
+        }
+      });
+    } catch (e) {}
+
+    return res.json({ streams });
   }
 
   res.json({ streams: [] });
 });
 
 const PORT = process.env.PORT || 7000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-          
+app.listen(PORT, () => console.log(`Server running on port ${PORT} (Full Meta & Multi-Source Enabled)`));
+                              
