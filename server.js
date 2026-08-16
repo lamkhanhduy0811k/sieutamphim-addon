@@ -26,9 +26,9 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio.v2',
-  version: '21.1.21',
+  version: '21.1.19',
   name: 'Sưu Tầm Phim',
-  description: 'Tối ưu hiển thị tiêu đề to nét chuẩn giao diện Nuvio TV',
+  description: 'Tối ưu danh mục ngắn gọn, hiển thị tiêu đề và tóm tắt chuẩn nét cho Nuvio TV',
   logo: 'https://i.ibb.co/689Q287/1000004533.jpg',
   resources: ['catalog', 'meta', 'stream'],
   types: ['movie', 'series'],
@@ -73,7 +73,7 @@ const MANIFEST = {
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.21!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.19!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 const cacheStore = {
@@ -184,7 +184,7 @@ async function loadAllData() {
     hhRes.forEach(res => {
       if (res?.data?.data?.items) {
         res.data.data.items.forEach(item => {
-          const cStr = JSON.stringify(item.category || '').toLowerCase();
+          const cStr = JSON.stringify(item.country || '').toLowerCase();
           const nameStr = (item.name || '').toLowerCase();
           const originName = (item.origin_name || '').toLowerCase();
           const slugStr = (item.slug || '').toLowerCase();
@@ -450,5 +450,5 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 });
 
 const PORT = process.env.PORT || 7000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Native Text v21.1.21)`));
-                                
+app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Clean v21.1.19)`));
+        
