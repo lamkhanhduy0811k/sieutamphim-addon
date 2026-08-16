@@ -26,9 +26,9 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio.v2',
-  version: '21.1.24',
+  version: '21.1.25',
   name: 'Sưu Tầm Phim',
-  description: 'Khôi phục danh mục Anime Nhật Bản và tối ưu phân loại cho Nuvio TV',
+  description: 'Addon xem phim đa dạng nguồn cho Nuvio TV',
   logo: 'https://i.ibb.co/689Q287/1000004533.jpg',
   resources: ['catalog', 'meta', 'stream'],
   types: ['movie', 'series'],
@@ -46,6 +46,30 @@ const MANIFEST = {
       extra: [{ name: 'search', isRequired: false }, { name: 'skip', isRequired: false }]
     },
     {
+      type: 'movie',
+      id: 'stp_chieurap',
+      name: 'Sưu Tầm Phim - Phim Chiếu Rạp',
+      extra: [{ name: 'skip', isRequired: false }]
+    },
+    {
+      type: 'series',
+      id: 'stp_hanquoc',
+      name: 'Sưu Tầm Phim - Phim Hàn Quốc',
+      extra: [{ name: 'skip', isRequired: false }]
+    },
+    {
+      type: 'series',
+      id: 'stp_trungquoc',
+      name: 'Sưu Tầm Phim - Phim Trung Quốc',
+      extra: [{ name: 'skip', isRequired: false }]
+    },
+    {
+      type: 'series',
+      id: 'stp_hongkong',
+      name: 'Sưu Tầm Phim - Phim Hồng Kông',
+      extra: [{ name: 'skip', isRequired: false }]
+    },
+    {
       type: 'series',
       id: 'stp_anime',
       name: 'Sưu Tầm Phim - Anime Nhật Bản',
@@ -55,6 +79,12 @@ const MANIFEST = {
       type: 'movie',
       id: 'stp_anime_movie',
       name: 'Sưu Tầm Phim - Movie Anime Chiếu Rạp',
+      extra: [{ name: 'skip', isRequired: false }]
+    },
+    {
+      type: 'series',
+      id: 'stp_hoathinh',
+      name: 'Sưu Tầm Phim - Hoạt Hình 3D Trung Quốc',
       extra: [{ name: 'skip', isRequired: false }]
     },
     {
@@ -68,18 +98,12 @@ const MANIFEST = {
       id: 'stp_latest_series',
       name: 'Sưu Tầm Phim - Phim Bộ',
       extra: [{ name: 'skip', isRequired: false }]
-    },
-    {
-      type: 'series',
-      id: 'stp_hoathinh',
-      name: 'Sưu Tầm Phim - Hoạt Hình 3D Trung Quốc',
-      extra: [{ name: 'skip', isRequired: false }]
     }
   ],
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.24!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.25!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 const cacheStore = {
@@ -90,6 +114,10 @@ const cacheStore = {
   anime: [],
   animeMovie: [],
   hoathinh: [],
+  chieuRap: [],
+  hanQuoc: [],
+  trungQuoc: [],
+  hongKong: [],
   isLoaded: false
 };
 
@@ -171,11 +199,44 @@ async function loadAllData() {
     const animeList = [];
     const animeMovieList = [];
     const cnHoathinhList = [];
+    const chieuRapList = [];
+    const hanQuocList = [];
+    const trungQuocList = [];
+    const hongKongList = [];
+
+    const processItemCategories = (item, defaultType) => {
+      const categoryStr = JSON.stringify(item.category || '').toLowerCase();
+      const countryStr = JSON.stringify(item.country || '').toLowerCase();
+      const nameStr = (item.name || '').toLowerCase();
+      const slugStr = (item.slug || '').toLowerCase();
+      const meta = createCatalogMeta(item, defaultType);
+
+      // Lọc Phim Chiếu Rạp
+      if (categoryStr.includes('chiếu rạp') || nameStr.includes('chiếu rạp') || slugStr.includes('chieu-rap')) {
+        chieuRapList.push(meta);
+      }
+
+      // Lọc Phim Hàn Quốc
+      if (countryStr.includes('hàn quốc') || countryStr.includes('korea') || categoryStr.includes('hàn quốc')) {
+        hanQuocList.push(meta);
+      }
+
+      // Lọc Phim Trung Quốc
+      if (countryStr.includes('trung quốc') || countryStr.includes('china') || categoryStr.includes('trung quốc')) {
+        trungQuocList.push(meta);
+      }
+
+      // Lọc Phim Hồng Kông
+      if (countryStr.includes('hồng kông') || countryStr.includes('hongkong') || countryStr.includes('hong kong') || categoryStr.includes('hồng kông')) {
+        hongKongList.push(meta);
+      }
+    };
 
     movieRes.forEach(res => {
       if (res?.data?.data?.items) {
         res.data.data.items.forEach(item => {
           allMovies.push(createCatalogMeta(item, 'movie'));
+          processItemCategories(item, 'movie');
         });
       }
     });
@@ -184,6 +245,7 @@ async function loadAllData() {
       if (res?.data?.data?.items) {
         res.data.data.items.forEach(item => {
           allSeries.push(createCatalogMeta(item, 'series'));
+          processItemCategories(item, 'series');
         });
       }
     });
@@ -199,7 +261,7 @@ async function loadAllData() {
           const contentStr = (item.content || '').toLowerCase();
           const eStr = (item.episode_current || '').toLowerCase();
 
-          // Lọc chính xác phim Nhật Bản từ quốc gia hoặc thể loại
+          // Nhận diện Nhật Bản
           const isJapan = countryStr.includes('nhật bản') || countryStr.includes('japan') || countryStr.includes('jp') ||
                           categoryStr.includes('nhật bản') || categoryStr.includes('anime') ||
                           nameStr.includes('anime') || slugStr.includes('anime');
@@ -260,6 +322,10 @@ async function loadAllData() {
     cacheStore.anime = animeList;
     cacheStore.animeMovie = animeMovieList;
     cacheStore.hoathinh = cnHoathinhList;
+    cacheStore.chieuRap = chieuRapList;
+    cacheStore.hanQuoc = hanQuocList;
+    cacheStore.trungQuoc = trungQuocList;
+    cacheStore.hongKong = hongKongList;
     cacheStore.isLoaded = true;
   } catch (e) {
     console.error('Load data error:', e.message);
@@ -304,6 +370,10 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
   let fullList = [];
   if (id === 'stp_hot') fullList = cacheStore.hot;
   else if (id === 'stp_new_updates') fullList = cacheStore.newUpdates;
+  else if (id === 'stp_chieurap') fullList = cacheStore.chieuRap;
+  else if (id === 'stp_hanquoc') fullList = cacheStore.hanQuoc;
+  else if (id === 'stp_trungquoc') fullList = cacheStore.trungQuoc;
+  else if (id === 'stp_hongkong') fullList = cacheStore.hongKong;
   else if (id === 'stp_latest_movies') fullList = cacheStore.movies;
   else if (id === 'stp_latest_series') fullList = cacheStore.series;
   else if (id === 'stp_anime') fullList = cacheStore.anime;
@@ -482,5 +552,5 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 });
 
 const PORT = process.env.PORT || 7000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Clean v21.1.24)`));
-              
+app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Clean v21.1.25)`));
+      
