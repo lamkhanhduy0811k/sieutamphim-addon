@@ -26,9 +26,9 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio.v2',
-  version: '21.1.24',
+  version: '21.1.25',
   name: 'Sưu Tầm Phim',
-  description: 'Khôi phục danh mục Anime Nhật Bản và tối ưu phân loại cho Nuvio TV',
+  description: 'Lọc chuẩn Hoạt hình 3D Trung Quốc và Anime Nhật Bản cho Nuvio TV',
   logo: 'https://i.ibb.co/689Q287/1000004533.jpg',
   resources: ['catalog', 'meta', 'stream'],
   types: ['movie', 'series'],
@@ -58,6 +58,12 @@ const MANIFEST = {
       extra: [{ name: 'skip', isRequired: false }]
     },
     {
+      type: 'series',
+      id: 'stp_hoathinh',
+      name: 'Sưu Tầm Phim - Hoạt Hình 3D Trung Quốc',
+      extra: [{ name: 'skip', isRequired: false }]
+    },
+    {
       type: 'movie',
       id: 'stp_latest_movies',
       name: 'Sưu Tầm Phim - Phim Lẻ',
@@ -68,18 +74,12 @@ const MANIFEST = {
       id: 'stp_latest_series',
       name: 'Sưu Tầm Phim - Phim Bộ',
       extra: [{ name: 'skip', isRequired: false }]
-    },
-    {
-      type: 'series',
-      id: 'stp_hoathinh',
-      name: 'Sưu Tầm Phim - Hoạt Hình 3D Trung Quốc',
-      extra: [{ name: 'skip', isRequired: false }]
     }
   ],
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.24!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.25!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 const cacheStore = {
@@ -199,10 +199,14 @@ async function loadAllData() {
           const contentStr = (item.content || '').toLowerCase();
           const eStr = (item.episode_current || '').toLowerCase();
 
-          // Lọc chính xác phim Nhật Bản từ quốc gia hoặc thể loại
+          // Nhận diện Nhật Bản
           const isJapan = countryStr.includes('nhật bản') || countryStr.includes('japan') || countryStr.includes('jp') ||
                           categoryStr.includes('nhật bản') || categoryStr.includes('anime') ||
                           nameStr.includes('anime') || slugStr.includes('anime');
+
+          // Nhận diện Trung Quốc
+          const isChina = countryStr.includes('trung quốc') || countryStr.includes('china') || countryStr.includes('cn') ||
+                          categoryStr.includes('trung quốc');
 
           if (isJapan) {
             animeList.push(createCatalogMeta(item, 'series'));
@@ -226,7 +230,7 @@ async function loadAllData() {
             if (isMovie) {
               animeMovieList.push(createCatalogMeta(item, 'movie'));
             }
-          } else {
+          } else if (isChina) {
             cnHoathinhList.push(createCatalogMeta(item, 'series'));
           }
         });
@@ -482,5 +486,5 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 });
 
 const PORT = process.env.PORT || 7000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Clean v21.1.24)`));
-            
+app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Clean v21.1.25)`));
+                                           
