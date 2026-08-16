@@ -26,7 +26,7 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio.v2',
-  version: '21.1.34',
+  version: '21.1.35',
   name: 'Sưu Tầm Phim',
   description: 'Kho phim Vietsub, Lồng Tiếng & Thuyết Minh chất lượng cao. Cập nhật liên tục phim chiếu rạp, anime và truyền hình Á - Âu.',
   logo: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=500&auto=format&fit=crop&q=60',
@@ -115,7 +115,7 @@ const MANIFEST = {
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.34!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.35!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 function getCleanPlot(item) {
@@ -152,10 +152,9 @@ function createCatalogMeta(item, defaultType) {
   };
 }
 
-// Bản đồ đường dẫn API trực tiếp giúp phản hồi tức thì không cần quét nhiều trang
 const API_MAP = {
   'stp_chieurap': 'https://phimapi.com/v1/api/danh-sach/phim-chieu-rap',
-  'stp_longtieng': 'https://phimapi.com/v1/api/danh-sach/phim-le', // Tạm dùng danh sách tối ưu
+  'stp_longtieng': 'https://phimapi.com/v1/api/danh-sach/phim-le',
   'stp_vietnam': 'https://phimapi.com/v1/api/quoc-gia/viet-nam',
   'stp_hanquoc': 'https://phimapi.com/v1/api/quoc-gia/han-quoc',
   'stp_trungquoc': 'https://phimapi.com/v1/api/quoc-gia/trung-quoc',
@@ -190,17 +189,35 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
   const apiUrl = API_MAP[id] || `https://phimapi.com/danh-sach/phim-moi-cap-nhat`;
 
   try {
-    const { data } = await axios.get(`${apiUrl}?page=${pageToFetch}&limit=30`, { timeout: 4000 });
+    const { data } = await axios.get(`${apiUrl}?page=${pageToFetch}&limit=40`, { timeout: 4000 });
     let items = data?.data?.items || data?.items || [];
 
-    // Lọc phụ tùy theo danh mục cho chuẩn xác
     if (id === 'stp_anime') {
-      items = items.filter(i => JSON.stringify(i.country || '').toLowerCase().includes('nhật bản'));
+      // Chỉ lấy hoạt hình Nhật Bản / Anime nhiều tập
+      items = items.filter(i => {
+        const cStr = JSON.stringify(i.country || '').toLowerCase();
+        return cStr.includes('nhật bản') || cStr.includes('japan');
+      });
+    } else if (id === 'stp_anime_movie') {
+      // Chỉ lấy movie / phim lẻ anime chiếu rạp
+      items = items.filter(i => {
+        const cStr = JSON.stringify(i.country || '').toLowerCase();
+        const nameStr = (i.name || '').toLowerCase();
+        const epStr = (i.episode_current || '').toLowerCase();
+        const isJapan = cStr.includes('nhật bản') || cStr.includes('japan');
+        const isMovieType = i.type === 'single' || i.type === 'movie' || epStr.includes('full') || epStr.includes('1 tập') || nameStr.includes('movie');
+        return isJapan && isMovieType;
+      });
     } else if (id === 'stp_hoathinh') {
-      items = items.filter(i => JSON.stringify(i.country || '').toLowerCase().includes('trung quốc'));
+      // Chỉ lấy hoạt hình Trung Quốc
+      items = items.filter(i => {
+        const cStr = JSON.stringify(i.country || '').toLowerCase();
+        return cStr.includes('trung quốc') || cStr.includes('china');
+      });
     }
 
-    const metas = items.map(item => createCatalogMeta(item, item.type === 'single' ? 'movie' : 'series'));
+    const defaultType = (id === 'stp_chieurap' || id === 'stp_anime_movie' || id === 'stp_latest_movies') ? 'movie' : 'series';
+    const metas = items.map(item => createCatalogMeta(item, defaultType));
     return res.json({ metas });
   } catch (e) {
     return res.json({ metas: [] });
@@ -299,5 +316,5 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 });
 
 const PORT = process.env.PORT || 7000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Fast v21.1.34)`));
-          
+app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Fast v21.1.35)`));
+                         
