@@ -167,7 +167,6 @@ const API_MAP = {
   'stp_hot': 'https://phimapi.com/danh-sach/phim-moi-cap-nhat'
 };
 
-// Bộ nhớ đệm giữ phản hồi danh mục siêu nhanh trong 10 phút
 const catalogResponseCache = new Map();
 const CACHE_TTL = 10 * 60 * 1000;
 
@@ -189,7 +188,6 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
     }
   }
 
-  // Kiểm tra Cache phản hồi nhanh
   const cacheKey = `${id}_${skip}`;
   const cachedData = catalogResponseCache.get(cacheKey);
   if (cachedData && (Date.now() - cachedData.time < CACHE_TTL)) {
@@ -199,10 +197,27 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
   try {
     const pageToFetch = Math.floor(skip / 30) + 1;
     const apiUrl = API_MAP[id] || `https://phimapi.com/danh-sach/phim-moi-cap-nhat`;
-    
-    // Timeout 3 giây giúp nạp danh mục nhanh vượt trội
-    const { data } = await axios.get(`${apiUrl}?page=${pageToFetch}&limit=30`, { timeout: 3000 });
-    let items = data?.data?.items || data?.items || [];
+    let items = [];
+
+    // Tải song song 3 trang đối với các mục lọc đặc thù để luôn có đủ số lượng phim
+    if (id === 'stp_anime_movie' || id === 'stp_anime' || id === 'stp_hoathinh') {
+      const p1 = pageToFetch;
+      const p2 = pageToFetch + 1;
+      const p3 = pageToFetch + 2;
+      const [r1, r2, r3] = await Promise.all([
+        axios.get(`${apiUrl}?page=${p1}&limit=50`, { timeout: 3500 }).catch(() => null),
+        axios.get(`${apiUrl}?page=${p2}&limit=50`, { timeout: 3500 }).catch(() => null),
+        axios.get(`${apiUrl}?page=${p3}&limit=50`, { timeout: 3500 }).catch(() => null)
+      ]);
+      items = [
+        ...(r1?.data?.data?.items || r1?.data?.items || []),
+        ...(r2?.data?.data?.items || r2?.data?.items || []),
+        ...(r3?.data?.data?.items || r3?.data?.items || [])
+      ];
+    } else {
+      const { data } = await axios.get(`${apiUrl}?page=${pageToFetch}&limit=30`, { timeout: 3000 });
+      items = data?.data?.items || data?.items || [];
+    }
 
     if (id === 'stp_anime') {
       items = items.filter(i => {
@@ -236,7 +251,6 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
     const metas = items.map(item => createCatalogMeta(item, defaultType));
     const responsePayload = { metas };
 
-    // Lưu vào cache
     catalogResponseCache.set(cacheKey, { time: Date.now(), payload: responsePayload });
 
     return res.json(responsePayload);
@@ -338,4 +352,4 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 
 const PORT = process.env.PORT || 7000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Fast v21.1.25)`));
-                                                                                             
+        
