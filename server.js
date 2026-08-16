@@ -26,7 +26,7 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio.v2',
-  version: '21.1.42',
+  version: '21.1.43',
   name: 'Sưu Tầm Phim',
   description: 'Kho phim Vietsub, Lồng Tiếng & Thuyết Minh chất lượng cao. Cập nhật liên tục phim chiếu rạp, anime và truyền hình Á - Âu.',
   logo: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=500&auto=format&fit=crop&q=60',
@@ -115,7 +115,7 @@ const MANIFEST = {
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.42!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.43!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 function getCleanPlot(item) {
@@ -160,7 +160,7 @@ const API_MAP = {
   'stp_trungquoc': 'https://phimapi.com/v1/api/quoc-gia/trung-quoc',
   'stp_hongkong': 'https://phimapi.com/v1/api/quoc-gia/hong-kong',
   'stp_anime': 'https://phimapi.com/v1/api/danh-sach/hoat-hinh',
-  'stp_anime_movie': 'https://phimapi.com/v1/api/danh-sach/hoat-hinh',
+  'stp_anime_movie': 'https://phimapi.com/v1/api/danh-sach/phim-le', // Tối ưu quét trực tiếp từ kho phim lẻ để lấy full anime movie cực nhanh
   'stp_hoathinh': 'https://phimapi.com/v1/api/danh-sach/hoat-hinh',
   'stp_latest_movies': 'https://phimapi.com/v1/api/danh-sach/phim-le',
   'stp_latest_series': 'https://phimapi.com/v1/api/danh-sach/phim-bo',
@@ -189,9 +189,9 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
     let items = [];
 
     if (id === 'stp_anime_movie') {
-      // Quét gộp 100 trang hoạt hình để gom kho movie anime cực đại
-      const pagePromises = Array.from({ length: 100 }, (_, i) => i + 1).map(p => 
-        axios.get(`https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${p}&limit=40`, { timeout: 4000 })
+      // Quét nhanh 30 trang phim lẻ kết hợp lọc chuẩn các từ khóa anime / hoạt hình Nhật Bản
+      const pagePromises = Array.from({ length: 30 }, (_, i) => i + 1).map(p => 
+        axios.get(`https://phimapi.com/v1/api/danh-sach/phim-le?page=${p}&limit=50`, { timeout: 4000 })
           .catch(() => ({ data: {} }))
       );
       const results = await Promise.all(pagePromises);
@@ -201,24 +201,19 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
         allItems = allItems.concat(list);
       });
 
-      // Lọc sạch sẽ: chỉ lấy anime lẻ / movie Nhật Bản, bỏ hoàn toàn phim bộ dài tập
       items = allItems.filter(i => {
         const cStr = JSON.stringify(i.country || '').toLowerCase();
-        const epStr = (i.episode_current || '').toLowerCase();
-        const typeStr = (i.type || '').toLowerCase();
+        const catStr = JSON.stringify(i.category || '').toLowerCase();
         const nameStr = (i.name || '').toLowerCase();
+        const originNameStr = (i.origin_name || '').toLowerCase();
 
         const isJapan = cStr.includes('nhật bản') || cStr.includes('japan');
-        const isSingle = typeStr === 'single' || typeStr === 'movie';
-        const isMovieLabel = epStr.includes('full') || epStr.includes('1 tập') || epStr.includes('tập full') || nameStr.includes('movie');
-        
-        const hasSeriesEpisode = epStr.includes('tập') && !epStr.includes('1 tập') && !epStr.includes('full') && !epStr.includes('tập full');
-        const hasSeason = nameStr.includes('phần ') || nameStr.includes('season ');
+        const isAnimeCat = catStr.includes('hoạt hình') || catStr.includes('anime');
+        const isKnownAnime = nameStr.includes('doraemon') || nameStr.includes('conan') || nameStr.includes('shin') || nameStr.includes('one piece') || nameStr.includes('dragon ball') || nameStr.includes('naruto') || nameStr.includes('thanh gươm');
 
-        return isJapan && (isSingle || isMovieLabel) && !hasSeriesEpisode && !hasSeason;
+        return isJapan && (isAnimeCat || isKnownAnime);
       });
 
-      // Phân trang dữ liệu đã gom
       items = items.slice(skip, skip + 40);
     } else {
       const pageToFetch = Math.floor(skip / 30) + 1;
@@ -339,5 +334,5 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 });
 
 const PORT = process.env.PORT || 7000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Fast v21.1.42)`));
-                              
+app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Fast v21.1.43)`));
+          
