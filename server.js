@@ -26,7 +26,7 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio.v2',
-  version: '21.1.28',
+  version: '21.1.29',
   name: 'Sưu Tầm Phim',
   description: 'Addon xem phim đa dạng nguồn cho Nuvio TV',
   logo: 'https://i.ibb.co/689Q287/1000004533.jpg',
@@ -84,7 +84,7 @@ const MANIFEST = {
     {
       type: 'series',
       id: 'stp_hoathinh',
-      name: 'Sưu Tầm Phim - Hoạt Hình 3D Trung Quốc',
+      name: 'Sưu Tầm Phim - Hoạt Hình Trung Quốc',
       extra: [{ name: 'skip', isRequired: false }]
     },
     {
@@ -103,7 +103,7 @@ const MANIFEST = {
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.28!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.29!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 const cacheStore = {};
@@ -161,7 +161,7 @@ function createCatalogMeta(item, defaultType) {
   };
 }
 
-async function fetchInBatches(url, totalPages, defaultType, filterFn = null) {
+async function fetchRawInBatches(url, totalPages, filterFn = null) {
   const list = [];
   const seenSlugs = new Set();
   const batchSize = 4;
@@ -178,7 +178,7 @@ async function fetchInBatches(url, totalPages, defaultType, filterFn = null) {
           if (!seenSlugs.has(item.slug)) {
             if (filterFn && !filterFn(item)) return;
             seenSlugs.add(item.slug);
-            list.push(createCatalogMeta(item, item.type === 'single' ? 'movie' : (item.type === 'series' ? 'series' : defaultType)));
+            list.push(item);
           }
         });
       }
@@ -194,38 +194,66 @@ async function getCatalogItems(id) {
 
   let items = [];
   if (id === 'stp_chieurap') {
-    items = await fetchInBatches('https://phimapi.com/v1/api/danh-sach/phim-chieu-rap', 12, 'movie');
+    const raw = await fetchRawInBatches('https://phimapi.com/v1/api/danh-sach/phim-chieu-rap', 12);
+    items = raw.map(i => createCatalogMeta(i, 'movie'));
   } else if (id === 'stp_hanquoc') {
-    items = await fetchInBatches('https://phimapi.com/v1/api/quoc-gia/han-quoc', 14, 'series', item => !isAnimation(item));
+    const raw = await fetchRawInBatches('https://phimapi.com/v1/api/quoc-gia/han-quoc', 14, item => !isAnimation(item));
+    items = raw.map(i => createCatalogMeta(i, 'series'));
   } else if (id === 'stp_trungquoc') {
-    items = await fetchInBatches('https://phimapi.com/v1/api/quoc-gia/trung-quoc', 16, 'series', item => !isAnimation(item));
+    const raw = await fetchRawInBatches('https://phimapi.com/v1/api/quoc-gia/trung-quoc', 18, item => !isAnimation(item));
+    items = raw.map(i => createCatalogMeta(i, 'series'));
   } else if (id === 'stp_hongkong') {
-    items = await fetchInBatches('https://phimapi.com/v1/api/quoc-gia/hong-kong', 14, 'series', item => !isAnimation(item));
+    const raw = await fetchRawInBatches('https://phimapi.com/v1/api/quoc-gia/hong-kong', 14, item => !isAnimation(item));
+    items = raw.map(i => createCatalogMeta(i, 'series'));
   } else if (id === 'stp_latest_movies') {
-    items = await fetchInBatches('https://phimapi.com/v1/api/danh-sach/phim-le', 12, 'movie');
+    const raw = await fetchRawInBatches('https://phimapi.com/v1/api/danh-sach/phim-le', 12);
+    items = raw.map(i => createCatalogMeta(i, 'movie'));
   } else if (id === 'stp_latest_series') {
-    items = await fetchInBatches('https://phimapi.com/v1/api/danh-sach/phim-bo', 12, 'series');
+    const raw = await fetchRawInBatches('https://phimapi.com/v1/api/danh-sach/phim-bo', 12);
+    items = raw.map(i => createCatalogMeta(i, 'series'));
   } else if (id === 'stp_anime' || id === 'stp_anime_movie' || id === 'stp_hoathinh') {
-    const rawList = await fetchInBatches('https://phimapi.com/v1/api/danh-sach/hoat-hinh', 20, 'series');
+    const rawList = await fetchRawInBatches('https://phimapi.com/v1/api/danh-sach/hoat-hinh', 22);
     const animeList = [];
     const animeMovieList = [];
     const cnHoathinhList = [];
 
-    rawList.forEach(meta => {
-      const gStr = JSON.stringify(meta.genres || '').toLowerCase();
-      const nameStr = (meta.name || '').toLowerCase();
-      const slugStr = (meta.id || '').toLowerCase();
+    rawList.forEach(item => {
+      const countryStr = JSON.stringify(item.country || '').toLowerCase();
+      const categoryStr = JSON.stringify(item.category || '').toLowerCase();
+      const nameStr = (item.name || '').toLowerCase();
+      const originName = (item.origin_name || '').toLowerCase();
+      const slugStr = (item.slug || '').toLowerCase();
+      const contentStr = (item.content || '').toLowerCase();
+      const eStr = (item.episode_current || '').toLowerCase();
 
-      const isJapan = gStr.includes('nhật bản') || gStr.includes('anime') || nameStr.includes('anime') || slugStr.includes('anime');
+      const isChina = countryStr.includes('trung quốc') || countryStr.includes('china') || categoryStr.includes('trung quốc');
+      const isJapan = countryStr.includes('nhật bản') || countryStr.includes('japan') || categoryStr.includes('nhật bản');
 
-      if (isJapan) {
-        animeList.push(meta);
+      if (isChina) {
+        cnHoathinhList.push(createCatalogMeta(item, 'series'));
+      } else if (isJapan || categoryStr.includes('anime') || nameStr.includes('anime')) {
+        const metaObj = createCatalogMeta(item, 'series');
+        animeList.push(metaObj);
+
         const hasBlacklistedWord = strictBlacklist.some(kw => nameStr.includes(kw) || slugStr.includes(kw));
-        if (!hasBlacklistedWord && (meta.type === 'movie' || nameStr.includes('movie') || nameStr.includes('ova'))) {
-          animeMovieList.push(meta);
+        if (hasBlacklistedWord) return;
+
+        if (nameStr.includes('lời nguyền') || nameStr.includes('ju-on') || nameStr.includes('narayama') || 
+            categoryStr.includes('live action') || contentStr.includes('live-action') ||
+            nameStr.includes('phần') || nameStr.includes('season') || nameStr.includes('mùa') ||
+            eStr.includes('tập') || eStr.includes('/')) {
+          return;
         }
-      } else {
-        cnHoathinhList.push(meta);
+
+        const isMovie = item.type === 'movie' || item.type === 'single' ||
+                        nameStr.includes('movie') || originName.includes('movie') || slugStr.includes('movie') ||
+                        nameStr.includes('ova') || originName.includes('ova') || slugStr.includes('ova') ||
+                        nameStr.includes('special') || nameStr.includes('chieu rap') || slugStr.includes('chieu-rap') ||
+                        eStr.includes('full') || eStr.includes('1 tập') || eStr.includes('hoàn tất') || eStr.includes('1/1');
+
+        if (isMovie) {
+          animeMovieList.push(createCatalogMeta(item, 'movie'));
+        }
       }
     });
 
@@ -450,5 +478,5 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 });
 
 const PORT = process.env.PORT || 7000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Clean v21.1.28)`));
-                                                            
+app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Clean v21.1.29)`));
+      
