@@ -26,9 +26,9 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio.v2',
-  version: '21.1.26',
+  version: '21.1.25',
   name: 'Sưu Tầm Phim',
-  description: 'Lọc sạch Bebefinn & phim thiếu nhi khỏi mục Hoạt Hình 3D Trung Quốc cho Nuvio TV',
+  description: 'Lọc chuẩn Hoạt hình 3D Trung Quốc và Anime Nhật Bản cho Nuvio TV',
   logo: 'https://i.ibb.co/689Q287/1000004533.jpg',
   resources: ['catalog', 'meta', 'stream'],
   types: ['movie', 'series'],
@@ -79,7 +79,7 @@ const MANIFEST = {
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.26!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.25!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 const cacheStore = {
@@ -98,13 +98,6 @@ const strictBlacklist = [
   'lord el-melloi', 'rail zeppelin', 'case files', 'grand blue', 
   '100 cô bạn gái', 'yozakura', 'hell mode', 'cậu và tớ', 'nữ hùng',
   'oakhaven', 'phần 2', 'phần 3', 'season 2', 'season 3', 'ss2', 'ss3'
-];
-
-// Danh sách đen loại bỏ các phim thiếu nhi / mầm non lọt vào Hoạt Hình Trung Quốc
-const kidsBlacklist = [
-  'bebefinn', 'cocomelon', 'pinkfong', 'babybus', 'pororo', 
-  'peppa', 'paw patrol', 'chuchu tv', 'bread barbershop', 
-  'alvin', 'super wings', 'dino powers', 'nhà tạo mẫu tóc'
 ];
 
 function getCleanPlot(item) {
@@ -206,17 +199,14 @@ async function loadAllData() {
           const contentStr = (item.content || '').toLowerCase();
           const eStr = (item.episode_current || '').toLowerCase();
 
-          // Bỏ qua các phim hoạt hình mầm non / thiếu nhi
-          const isKidsShow = kidsBlacklist.some(kw => nameStr.includes(kw) || slugStr.includes(kw) || originName.includes(kw));
-
           // Nhận diện Nhật Bản
           const isJapan = countryStr.includes('nhật bản') || countryStr.includes('japan') || countryStr.includes('jp') ||
                           categoryStr.includes('nhật bản') || categoryStr.includes('anime') ||
                           nameStr.includes('anime') || slugStr.includes('anime');
 
-          // Nhận diện Trung Quốc chính xác
-          const isChina = countryStr.includes('trung quốc') || countryStr.includes('trung-quoc') || countryStr.includes('china') ||
-                          categoryStr.includes('trung quốc') || categoryStr.includes('trung-quoc');
+          // Nhận diện Trung Quốc
+          const isChina = countryStr.includes('trung quốc') || countryStr.includes('china') || countryStr.includes('cn') ||
+                          categoryStr.includes('trung quốc');
 
           if (isJapan) {
             animeList.push(createCatalogMeta(item, 'series'));
@@ -240,7 +230,7 @@ async function loadAllData() {
             if (isMovie) {
               animeMovieList.push(createCatalogMeta(item, 'movie'));
             }
-          } else if (isChina && !isKidsShow) {
+          } else if (isChina) {
             cnHoathinhList.push(createCatalogMeta(item, 'series'));
           }
         });
@@ -496,5 +486,4 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 });
 
 const PORT = process.env.PORT || 7000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Clean v21.1.26)`));
-            
+app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Clean v21.1.25)`));
