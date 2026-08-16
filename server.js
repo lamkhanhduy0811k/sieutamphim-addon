@@ -24,16 +24,11 @@ function parseExtra(extraStr) {
   return extra;
 }
 
-function getLogoUrl(title) {
-  if (!title) return '';
-  return `https://placehold.co/800x200/transparent/FFFFFF.png?text=${encodeURIComponent(title)}`;
-}
-
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio.v2',
-  version: '21.1.20',
+  version: '21.1.21',
   name: 'Sưu Tầm Phim',
-  description: 'Tự động tạo Logo chữ nghệ thuật và làm sạch danh mục cho Nuvio TV',
+  description: 'Tối ưu hiển thị tiêu đề to nét chuẩn giao diện Nuvio TV',
   logo: 'https://i.ibb.co/689Q287/1000004533.jpg',
   resources: ['catalog', 'meta', 'stream'],
   types: ['movie', 'series'],
@@ -78,7 +73,7 @@ const MANIFEST = {
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.20!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.21!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 const cacheStore = {
@@ -125,7 +120,6 @@ function createCatalogMeta(item, defaultType) {
     name: item.name,
     poster: p,
     background: b || p,
-    logo: getLogoUrl(item.name),
     description: getCleanPlot(item),
     genres: genres,
     releaseInfo: `${yearStr} • ${epStr}`,
@@ -394,7 +388,6 @@ app.get(['/meta/:type/:id.json', '/meta/:type/:id/:extra.json'], async (req, res
         name: movie.name || 'Phim',
         poster: p,
         background: thumbImg,
-        logo: getLogoUrl(movie.name),
         description: cleanDescription,
         genres: genres,
         director: director,
@@ -457,5 +450,5 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 });
 
 const PORT = process.env.PORT || 7000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Logo Dynamic v21.1.20)`));
-      
+app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Native Text v21.1.21)`));
+                                
