@@ -24,6 +24,13 @@ function parseExtra(extraStr) {
   return extra;
 }
 
+const GENRES = [
+  'Hành Động', 'Tình Cảm', 'Hài Hước', 'Cổ Trang', 
+  'Tâm Lý', 'Viễn Tưởng', 'Kinh Dị', 'Hình Sự', 
+  'Võ Thuật', 'Gia Đình', 'Phiêu Lưu', 'Hoạt Hình', 
+  'Khoa Học', 'Thần Thoại', 'Chiến Tranh', 'Học Đường'
+];
+
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio.v2',
   version: '21.1.25',
@@ -37,79 +44,92 @@ const MANIFEST = {
       type: 'movie',
       id: 'stp_hot',
       name: 'Sưu Tầm Phim - Phim Hot Thịnh Hành',
-      extra: [{ name: 'skip', isRequired: false }]
+      genres: GENRES,
+      extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }]
     },
     {
       type: 'movie',
       id: 'stp_new_updates',
       name: 'Sưu Tầm Phim - Phim Mới & Tìm Kiếm',
-      extra: [{ name: 'search', isRequired: false }, { name: 'skip', isRequired: false }]
+      genres: GENRES,
+      extra: [{ name: 'search', isRequired: false }, { name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }]
     },
     {
       type: 'series',
       id: 'stp_longtieng',
       name: 'Sưu Tầm Phim - Phim Lồng Tiếng',
-      extra: [{ name: 'skip', isRequired: false }]
+      genres: GENRES,
+      extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }]
     },
     {
       type: 'movie',
       id: 'stp_chieurap',
       name: 'Sưu Tầm Phim - Phim Chiếu Rạp',
-      extra: [{ name: 'skip', isRequired: false }]
+      genres: GENRES,
+      extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }]
     },
     {
       type: 'series',
       id: 'stp_vietnam',
       name: 'Sưu Tầm Phim - Phim Việt Nam',
-      extra: [{ name: 'skip', isRequired: false }]
+      genres: GENRES,
+      extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }]
     },
     {
       type: 'series',
       id: 'stp_hanquoc',
       name: 'Sưu Tầm Phim - Phim Hàn Quốc',
-      extra: [{ name: 'skip', isRequired: false }]
+      genres: GENRES,
+      extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }]
     },
     {
       type: 'series',
       id: 'stp_trungquoc',
       name: 'Sưu Tầm Phim - Phim Trung Quốc',
-      extra: [{ name: 'skip', isRequired: false }]
+      genres: GENRES,
+      extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }]
     },
     {
       type: 'series',
       id: 'stp_hongkong',
       name: 'Sưu Tầm Phim - Phim Hồng Kông',
-      extra: [{ name: 'skip', isRequired: false }]
+      genres: GENRES,
+      extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }]
     },
     {
       type: 'series',
       id: 'stp_anime',
       name: 'Sưu Tầm Phim - Anime Nhật Bản',
-      extra: [{ name: 'skip', isRequired: false }]
+      genres: GENRES,
+      extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }]
     },
     {
       type: 'movie',
       id: 'stp_anime_movie',
       name: 'Sưu Tầm Phim - Movie Anime Chiếu Rạp',
-      extra: [{ name: 'skip', isRequired: false }]
+      genres: GENRES,
+      extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }]
     },
     {
       type: 'series',
       id: 'stp_hoathinh',
       name: 'Sưu Tầm Phim - Hoạt Hình Trung Quốc',
-      extra: [{ name: 'skip', isRequired: false }]
+      genres: GENRES,
+      extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }]
     },
     {
       type: 'movie',
       id: 'stp_latest_movies',
       name: 'Sưu Tầm Phim - Phim Lẻ',
-      extra: [{ name: 'skip', isRequired: false }]
+      genres: GENRES,
+      extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }]
     },
     {
       type: 'series',
       id: 'stp_latest_series',
       name: 'Sưu Tầm Phim - Phim Bộ',
-      extra: [{ name: 'skip', isRequired: false }]
+      genres: GENRES,
+      extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }]
     }
   ],
   idPrefixes: ['stp:', 'phimapi:']
@@ -175,12 +195,16 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
   const extra = parseExtra(extraStr);
   const skip = parseInt(extra.skip) || 0;
   const searchQuery = extra.search ? decodeURIComponent(extra.search).trim() : null;
+  const selectedGenre = extra.genre ? decodeURIComponent(extra.genre).trim().toLowerCase() : null;
 
   if (searchQuery) {
     try {
       const searchUrl = `https://phimapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(searchQuery)}&limit=50`;
       const { data } = await axios.get(searchUrl, { timeout: 3500 });
-      const items = data?.data?.items || [];
+      let items = data?.data?.items || [];
+      if (selectedGenre) {
+        items = items.filter(i => JSON.stringify(i.category || '').toLowerCase().includes(selectedGenre));
+      }
       const metas = items.map(item => createCatalogMeta(item, item.type === 'single' ? 'movie' : 'series'));
       return res.json({ metas });
     } catch (e) {
@@ -188,7 +212,7 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
     }
   }
 
-  const cacheKey = `${id}_${skip}`;
+  const cacheKey = `${id}_${skip}_${selectedGenre || 'all'}`;
   const cachedData = catalogResponseCache.get(cacheKey);
   if (cachedData && (Date.now() - cachedData.time < CACHE_TTL)) {
     return res.json(cachedData.payload);
@@ -199,8 +223,8 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
     const apiUrl = API_MAP[id] || `https://phimapi.com/danh-sach/phim-moi-cap-nhat`;
     let items = [];
 
+    // Tải song song nhiều trang hơn khi người dùng lọc thể loại để đảm bảo không bị thiếu phim
     if (id === 'stp_anime_movie') {
-      // Quét song song 10 trang (500 phim) để có danh sách Movie Anime đầy đủ
       const startP = (pageToFetch - 1) * 10 + 1;
       const pages = Array.from({ length: 10 }, (_, i) => startP + i);
       const responses = await Promise.all(
@@ -210,10 +234,10 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
         const list = r?.data?.data?.items || r?.data?.items || [];
         items = items.concat(list);
       });
-    } else if (id === 'stp_anime' || id === 'stp_hoathinh') {
-      // Quét song song 4 trang
-      const startP = (pageToFetch - 1) * 4 + 1;
-      const pages = Array.from({ length: 4 }, (_, i) => startP + i);
+    } else if (id === 'stp_anime' || id === 'stp_hoathinh' || selectedGenre) {
+      const fetchCount = selectedGenre ? 5 : 4;
+      const startP = (pageToFetch - 1) * fetchCount + 1;
+      const pages = Array.from({ length: fetchCount }, (_, i) => startP + i);
       const responses = await Promise.all(
         pages.map(p => axios.get(`${apiUrl}?page=${p}&limit=50`, { timeout: 3500 }).catch(() => null))
       );
@@ -251,6 +275,14 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
       items = items.filter(i => {
         const cStr = JSON.stringify(i.country || '').toLowerCase();
         return cStr.includes('trung quốc') || cStr.includes('china');
+      });
+    }
+
+    // Lọc theo thể loại nếu người dùng chọn trên app
+    if (selectedGenre) {
+      items = items.filter(i => {
+        const catStr = JSON.stringify(i.category || '').toLowerCase();
+        return catStr.includes(selectedGenre);
       });
     }
 
@@ -359,4 +391,4 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 
 const PORT = process.env.PORT || 7000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Fast v21.1.25)`));
-                                                                       
+          
