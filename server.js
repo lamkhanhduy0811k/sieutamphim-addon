@@ -26,9 +26,9 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio.v2',
-  version: '21.1.22',
+  version: '21.1.23',
   name: 'Sưu Tầm Phim',
-  description: 'Tối ưu danh mục ngắn gọn, bổ sung mục Phim Hot Thịnh Hành cho Nuvio TV',
+  description: 'Tối ưu danh mục ngắn gọn, sửa trùng lặp mục Phim Hot Thịnh Hành cho Nuvio TV',
   logo: 'https://i.ibb.co/689Q287/1000004533.jpg',
   resources: ['catalog', 'meta', 'stream'],
   types: ['movie', 'series'],
@@ -79,7 +79,7 @@ const MANIFEST = {
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.22!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.23!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 const cacheStore = {
@@ -230,18 +230,11 @@ async function loadAllData() {
       }
     });
 
-    // Tạo danh sách Phim Hot: Chọn lọc đan xen các phim mới & chất lượng nhất
+    // Tạo danh sách Phim Hot: Đan xen 1 Phim Lẻ -> 1 Phim Bộ -> 1 Movie Anime để tránh lặp lại
     const hotList = [];
     const seenSlugs = new Set();
+    const maxLen = Math.max(allMovies.length, allSeries.length, animeMovieList.length);
 
-    newUpdatesList.slice(0, 15).forEach(item => {
-      if (!seenSlugs.has(item.id)) {
-        seenSlugs.add(item.id);
-        hotList.push(item);
-      }
-    });
-
-    const maxLen = Math.max(allMovies.length, allSeries.length);
     for (let i = 0; i < maxLen && hotList.length < 60; i++) {
       if (allMovies[i] && !seenSlugs.has(allMovies[i].id)) {
         seenSlugs.add(allMovies[i].id);
@@ -250,6 +243,10 @@ async function loadAllData() {
       if (allSeries[i] && !seenSlugs.has(allSeries[i].id)) {
         seenSlugs.add(allSeries[i].id);
         hotList.push(allSeries[i]);
+      }
+      if (animeMovieList[i] && !seenSlugs.has(animeMovieList[i].id)) {
+        seenSlugs.add(animeMovieList[i].id);
+        hotList.push(animeMovieList[i]);
       }
     }
 
@@ -482,5 +479,5 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 });
 
 const PORT = process.env.PORT || 7000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Clean v21.1.22)`));
-                                                                           
+app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Clean v21.1.23)`));
+                                           
