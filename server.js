@@ -26,7 +26,7 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio.v2',
-  version: '21.1.26',
+  version: '21.1.27',
   name: 'Sưu Tầm Phim',
   description: 'Addon xem phim đa dạng nguồn cho Nuvio TV',
   logo: 'https://i.ibb.co/689Q287/1000004533.jpg',
@@ -103,7 +103,7 @@ const MANIFEST = {
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.26!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.27!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 const cacheStore = {
@@ -127,6 +127,18 @@ const strictBlacklist = [
   '100 cô bạn gái', 'yozakura', 'hell mode', 'cậu và tớ', 'nữ hùng',
   'oakhaven', 'phần 2', 'phần 3', 'season 2', 'season 3', 'ss2', 'ss3'
 ];
+
+function isAnimation(item) {
+  const categoryStr = JSON.stringify(item.category || '').toLowerCase();
+  const typeStr = (item.type || '').toLowerCase();
+  const slugStr = (item.slug || '').toLowerCase();
+
+  return typeStr === 'hoathinh' || 
+         categoryStr.includes('hoạt hình') || 
+         categoryStr.includes('hoathinh') || 
+         categoryStr.includes('anime') ||
+         slugStr.includes('hoat-hinh');
+}
 
 function getCleanPlot(item) {
   let raw = item.content || item.description || '';
@@ -162,7 +174,7 @@ function createCatalogMeta(item, defaultType) {
   };
 }
 
-async function fetchFromEndpoint(url, totalPages = 10, defaultType = 'movie') {
+async function fetchFromEndpoint(url, totalPages = 10, defaultType = 'movie', filterFn = null) {
   const promises = [];
   for (let p = 1; p <= totalPages; p++) {
     promises.push(axios.get(`${url}?page=${p}&limit=50`, { timeout: 5000 }).catch(() => null));
@@ -175,6 +187,7 @@ async function fetchFromEndpoint(url, totalPages = 10, defaultType = 'movie') {
     if (res?.data?.data?.items) {
       res.data.data.items.forEach(item => {
         if (!seenSlugs.has(item.slug)) {
+          if (filterFn && !filterFn(item)) return;
           seenSlugs.add(item.slug);
           list.push(createCatalogMeta(item, item.type === 'single' ? 'movie' : (item.type === 'series' ? 'series' : defaultType)));
         }
@@ -194,12 +207,12 @@ async function loadAllData() {
 
     const [newRes, moviesList, seriesList, chieuRapList, hanQuocList, trungQuocList, hongKongList, hhRes] = await Promise.all([
       axios.get('https://phimapi.com/danh-sach/phim-moi-cap-nhat?page=1', { timeout: 5000 }).catch(() => null),
-      fetchFromEndpoint('https://phimapi.com/v1/api/danh-sach/phim-le', 10, 'movie'),
-      fetchFromEndpoint('https://phimapi.com/v1/api/danh-sach/phim-bo', 10, 'series'),
-      fetchFromEndpoint('https://phimapi.com/v1/api/danh-sach/phim-chieu-rap', 10, 'movie'),
-      fetchFromEndpoint('https://phimapi.com/v1/api/quoc-gia/han-quoc', 10, 'series'),
-      fetchFromEndpoint('https://phimapi.com/v1/api/quoc-gia/trung-quoc', 10, 'series'),
-      fetchFromEndpoint('https://phimapi.com/v1/api/quoc-gia/hong-kong', 10, 'series'),
+      fetchFromEndpoint('https://phimapi.com/v1/api/danh-sach/phim-le', 12, 'movie'),
+      fetchFromEndpoint('https://phimapi.com/v1/api/danh-sach/phim-bo', 12, 'series'),
+      fetchFromEndpoint('https://phimapi.com/v1/api/danh-sach/phim-chieu-rap', 12, 'movie'),
+      fetchFromEndpoint('https://phimapi.com/v1/api/quoc-gia/han-quoc', 12, 'series', item => !isAnimation(item)),
+      fetchFromEndpoint('https://phimapi.com/v1/api/quoc-gia/trung-quoc', 18, 'series', item => !isAnimation(item)),
+      fetchFromEndpoint('https://phimapi.com/v1/api/quoc-gia/hong-kong', 12, 'series', item => !isAnimation(item)),
       Promise.all(hhPromises)
     ]);
 
@@ -515,5 +528,5 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 });
 
 const PORT = process.env.PORT || 7000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Clean v21.1.26)`));
-    
+app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Clean v21.1.27)`));
+  
