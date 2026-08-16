@@ -26,13 +26,19 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio.v2',
-  version: '21.1.19',
+  version: '21.1.22',
   name: 'Sưu Tầm Phim',
-  description: 'Tối ưu danh mục ngắn gọn, hiển thị tiêu đề và tóm tắt chuẩn nét cho Nuvio TV',
+  description: 'Tối ưu danh mục ngắn gọn, bổ sung mục Phim Hot Thịnh Hành cho Nuvio TV',
   logo: 'https://i.ibb.co/689Q287/1000004533.jpg',
   resources: ['catalog', 'meta', 'stream'],
   types: ['movie', 'series'],
   catalogs: [
+    {
+      type: 'movie',
+      id: 'stp_hot',
+      name: 'Sưu Tầm Phim - Phim Hot Thịnh Hành',
+      extra: [{ name: 'skip', isRequired: false }]
+    },
     {
       type: 'movie',
       id: 'stp_new_updates',
@@ -73,10 +79,11 @@ const MANIFEST = {
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.19!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.22!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 const cacheStore = {
+  hot: [],
   newUpdates: [],
   movies: [],
   series: [],
@@ -184,7 +191,7 @@ async function loadAllData() {
     hhRes.forEach(res => {
       if (res?.data?.data?.items) {
         res.data.data.items.forEach(item => {
-          const cStr = JSON.stringify(item.country || '').toLowerCase();
+          const cStr = JSON.stringify(item.category || '').toLowerCase();
           const nameStr = (item.name || '').toLowerCase();
           const originName = (item.origin_name || '').toLowerCase();
           const slugStr = (item.slug || '').toLowerCase();
@@ -223,6 +230,30 @@ async function loadAllData() {
       }
     });
 
+    // Tạo danh sách Phim Hot: Chọn lọc đan xen các phim mới & chất lượng nhất
+    const hotList = [];
+    const seenSlugs = new Set();
+
+    newUpdatesList.slice(0, 15).forEach(item => {
+      if (!seenSlugs.has(item.id)) {
+        seenSlugs.add(item.id);
+        hotList.push(item);
+      }
+    });
+
+    const maxLen = Math.max(allMovies.length, allSeries.length);
+    for (let i = 0; i < maxLen && hotList.length < 60; i++) {
+      if (allMovies[i] && !seenSlugs.has(allMovies[i].id)) {
+        seenSlugs.add(allMovies[i].id);
+        hotList.push(allMovies[i]);
+      }
+      if (allSeries[i] && !seenSlugs.has(allSeries[i].id)) {
+        seenSlugs.add(allSeries[i].id);
+        hotList.push(allSeries[i]);
+      }
+    }
+
+    cacheStore.hot = hotList;
     cacheStore.newUpdates = newUpdatesList;
     cacheStore.movies = allMovies;
     cacheStore.series = allSeries;
@@ -243,7 +274,7 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
   const limit = 50;
 
   if (searchQuery) {
-    if (id !== 'stp_new_updates') {
+    if (id !== 'stp_new_updates' && id !== 'stp_hot') {
       return res.json({ metas: [] });
     }
     try {
@@ -271,7 +302,8 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
   await loadAllData();
 
   let fullList = [];
-  if (id === 'stp_new_updates') fullList = cacheStore.newUpdates;
+  if (id === 'stp_hot') fullList = cacheStore.hot;
+  else if (id === 'stp_new_updates') fullList = cacheStore.newUpdates;
   else if (id === 'stp_latest_movies') fullList = cacheStore.movies;
   else if (id === 'stp_latest_series') fullList = cacheStore.series;
   else if (id === 'stp_anime') fullList = cacheStore.anime;
@@ -450,5 +482,5 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 });
 
 const PORT = process.env.PORT || 7000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Clean v21.1.19)`));
-        
+app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Clean v21.1.22)`));
+                                                                           
