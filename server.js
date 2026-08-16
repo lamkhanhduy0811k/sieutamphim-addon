@@ -26,7 +26,7 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio.v2',
-  version: '21.1.46',
+  version: '21.1.47',
   name: 'Sưu Tầm Phim',
   description: 'Kho phim Vietsub, Lồng Tiếng & Thuyết Minh chất lượng cao. Cập nhật liên tục phim chiếu rạp, anime và truyền hình Á - Âu.',
   logo: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=500&auto=format&fit=crop&q=60',
@@ -115,7 +115,7 @@ const MANIFEST = {
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.46!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.47!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 function getCleanPlot(item) {
@@ -164,30 +164,23 @@ const API_MAP = {
   'stp_hot': 'https://phimapi.com/danh-sach/phim-moi-cap-nhat'
 };
 
-// Các bộ nhớ đệm thông minh cho Movie Anime, Hoạt Hình Trung Quốc và Phim Lồng Tiếng
+// Cache thông minh chạy ngầm an toàn, nhẹ nhàng
 let animeMovieCache = [];
-let isAnimeMovieLoaded = false;
-
 let hoatHinhCache = [];
-let isHoatHinhLoaded = false;
 
-let longTiengCache = [];
-let isLongTiengLoaded = false;
-
-async function loadAnimeMovieCache() {
-  if (isAnimeMovieLoaded && animeMovieCache.length > 0) return;
+async function loadSafeCache() {
   try {
-    let allItems = [];
-    for (let i = 0; i < 120; i += 15) {
-      const batch = Array.from({ length: Math.min(15, 120 - i) }, (_, idx) => i + idx + 1);
-      const promises = batch.map(p => axios.get(`https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${p}&limit=50`, { timeout: 3500 }).catch(() => ({ data: {} })));
-      const results = await Promise.all(promises);
-      results.forEach(r => {
-        const list = r.data?.data?.items || r.data?.items || [];
-        allItems = allItems.concat(list);
-      });
+    // Tải Anime Movie
+    let animeItems = [];
+    for (let p = 1; p <= 30; p++) {
+      try {
+        const res = await axios.get(`https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${p}&limit=50`, { timeout: 3000 });
+        const list = res.data?.data?.items || res.data?.items || [];
+        if (list.length === 0) break;
+        animeItems = animeItems.concat(list);
+      } catch (err) {}
     }
-    animeMovieCache = allItems.filter(i => {
+    animeMovieCache = animeItems.filter(i => {
       const cStr = JSON.stringify(i.country || '').toLowerCase();
       const epStr = (i.episode_current || '').toLowerCase();
       const typeStr = (i.type || '').toLowerCase();
@@ -199,60 +192,25 @@ async function loadAnimeMovieCache() {
       const hasSeason = nameStr.includes('phần ') || nameStr.includes('season ');
       return isJapan && (isSingle || isMovieLabel) && !hasSeriesEpisode && !hasSeason;
     });
-    isAnimeMovieLoaded = true;
-  } catch (e) {}
-}
 
-async function loadHoatHinhCache() {
-  if (isHoatHinhLoaded && hoatHinhCache.length > 0) return;
-  try {
-    let allItems = [];
-    for (let i = 0; i < 100; i += 15) {
-      const batch = Array.from({ length: Math.min(15, 100 - i) }, (_, idx) => i + idx + 1);
-      const promises = batch.map(p => axios.get(`https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${p}&limit=50`, { timeout: 3500 }).catch(() => ({ data: {} })));
-      const results = await Promise.all(promises);
-      results.forEach(r => {
-        const list = r.data?.data?.items || r.data?.items || [];
-        allItems = allItems.concat(list);
-      });
+    // Tải Hoạt hình Trung Quốc 3D
+    let hhItems = [];
+    for (let p = 1; p <= 40; p++) {
+      try {
+        const res = await axios.get(`https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${p}&limit=50`, { timeout: 3000 });
+        const list = res.data?.data?.items || res.data?.items || [];
+        if (list.length === 0) break;
+        hhItems = hhItems.concat(list);
+      } catch (err) {}
     }
-    hoatHinhCache = allItems.filter(i => {
+    hoatHinhCache = hhItems.filter(i => {
       const cStr = JSON.stringify(i.country || '').toLowerCase();
       return cStr.includes('trung quốc') || cStr.includes('china');
     });
-    isHoatHinhLoaded = true;
   } catch (e) {}
 }
 
-async function loadLongTiengCache() {
-  if (isLongTiengLoaded && longTiengCache.length > 0) return;
-  try {
-    let allItems = [];
-    for (let i = 0; i < 70; i += 15) {
-      const batch = Array.from({ length: Math.min(15, 70 - i) }, (_, idx) => i + idx + 1);
-      const promises = batch.map(p => axios.get(`https://phimapi.com/danh-sach/phim-moi-cap-nhat?page=${p}`, { timeout: 3500 }).catch(() => ({ data: {} })));
-      const results = await Promise.all(promises);
-      results.forEach(r => {
-        const list = r.data?.items || [];
-        allItems = allItems.concat(list);
-      });
-    }
-    longTiengCache = allItems.filter(i => {
-      const epStr = (i.episode_current || '').toLowerCase();
-      const nameStr = (i.name || '').toLowerCase();
-      const descStr = (i.content || i.description || '').toLowerCase();
-      return epStr.includes('lồng tiếng') || epStr.includes('thuyết minh') || 
-             nameStr.includes('lồng tiếng') || nameStr.includes('thuyết minh') ||
-             descStr.includes('lồng tiếng') || descStr.includes('thuyết minh');
-    });
-    isLongTiengLoaded = true;
-  } catch (e) {}
-}
-
-// Khởi chạy tải ngầm cache ngay khi server bật
-loadAnimeMovieCache();
-loadHoatHinhCache();
-loadLongTiengCache();
+loadSafeCache();
 
 app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (req, res) => {
   const { id, extra: extraStr } = req.params;
@@ -276,14 +234,36 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
     let items = [];
 
     if (id === 'stp_anime_movie') {
-      await loadAnimeMovieCache();
       items = animeMovieCache.slice(skip, skip + 40);
+      if (items.length === 0) items = animeMovieCache.slice(0, 40);
     } else if (id === 'stp_hoathinh') {
-      await loadHoatHinhCache();
       items = hoatHinhCache.slice(skip, skip + 40);
+      if (items.length === 0) items = hoatHinhCache.slice(0, 40);
     } else if (id === 'stp_longtieng') {
-      await loadLongTiengCache();
-      items = longTiengCache.slice(skip, skip + 40);
+      // Tải động nhiều trang phim mới cập nhật và lọc lồng tiếng/thuyết minh kèm dự phòng
+      let rawList = [];
+      const startPage = Math.floor(skip / 20) + 1;
+      for (let p = startPage; p < startPage + 5; p++) {
+        try {
+          const r = await axios.get(`https://phimapi.com/danh-sach/phim-moi-cap-nhat?page=${p}`, { timeout: 3500 });
+          const list = r.data?.items || [];
+          if (list.length > 0) rawList = rawList.concat(list);
+        } catch (err) {}
+      }
+      
+      items = rawList.filter(i => {
+        const epStr = (i.episode_current || '').toLowerCase();
+        const nameStr = (i.name || '').toLowerCase();
+        const descStr = (i.content || i.description || '').toLowerCase();
+        return epStr.includes('lồng tiếng') || epStr.includes('thuyết minh') || 
+               nameStr.includes('lồng tiếng') || nameStr.includes('thuyết minh') ||
+               descStr.includes('lồng tiếng') || descStr.includes('thuyết minh');
+      });
+
+      // Nếu bộ lọc quá khắt khe khiến danh sách trống, fallback lấy luôn phim mới để mục không bị biến mất
+      if (items.length === 0 && rawList.length > 0) {
+        items = rawList;
+      }
     } else {
       const pageToFetch = Math.floor(skip / 30) + 1;
       const apiUrl = API_MAP[id] || `https://phimapi.com/danh-sach/phim-moi-cap-nhat`;
@@ -398,5 +378,5 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 });
 
 const PORT = process.env.PORT || 7000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Fast v21.1.46)`));
-      
+app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Fast v21.1.47)`));
+  
