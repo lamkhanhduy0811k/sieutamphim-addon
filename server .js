@@ -70,7 +70,7 @@ const GENRE_KEYWORDS = {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio.v2',
-  version: '21.1.41',
+  version: '21.1.39',
   name: 'Sưu Tầm Phim',
   description: 'Kho phim Vietsub, Lồng Tiếng & Thuyết Minh chất lượng cao. Cập nhật liên tục phim chiếu rạp, anime và truyền hình Á - Âu.',
   logo: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=500&auto=format&fit=crop&q=60',
@@ -179,7 +179,7 @@ const MANIFEST = {
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.41!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.39!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 function getCleanPlot(item) {
@@ -298,8 +298,8 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
   if (searchQuery) {
     try {
       const searchUrl = `https://phimapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(searchQuery)}&limit=50`;
-      const { data } = await axios.get(searchUrl, { timeout: 6000 });
-      let items = data?.data?.items || data?.items || [];
+      const { data } = await axios.get(searchUrl, { timeout: 3500 });
+      let items = data?.data?.items || [];
       const metas = items.map(item => createCatalogMeta(item, item.type === 'single' ? 'movie' : 'series'));
       return res.json({ metas });
     } catch (e) {
@@ -318,28 +318,17 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
     let items = [];
     const isAnimeCatalog = (id === 'stp_anime' || id === 'stp_anime_m' || id === 'stp_anime_movie' || id === 'stp_hoathinh');
 
-    if (id === 'stp_hot' && !selectedGenre) {
-      // TỐI ƯU ĐẶC BIỆT CHO TRANG CHỦ (STP_HOT) TRÁNH ĐEN MÀN HÌNH
-      const { data } = await axios.get(`https://phimapi.com/danh-sach/phim-moi-cap-nhat?page=${pageToFetch}`, { timeout: 6000 });
-      let rawList = data?.items || data?.data?.items || [];
-      const metas = rawList.map(item => createCatalogMeta(item, 'movie'));
-      const responsePayload = { metas };
-      catalogResponseCache.set(cacheKey, { time: Date.now(), payload: responsePayload });
-      return res.json(responsePayload);
-    }
-
     if (isAnimeCatalog) {
-      const startP = Math.max(1, (pageToFetch - 1) * 2 + 1);
-      const requests = [];
+      // TRUY VẤN QUÉT RỘNG (DEEP SEARCH) TỪ 15 TRANG API
+      const startP = Math.max(1, (pageToFetch - 1) * 4 + 1);
+      const pages = Array.from({ length: 15 }, (_, i) => startP + i);
+
+      const requests = pages.map(p => axios.get(`https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${p}&limit=30`, { timeout: 3500 }).catch(() => null));
 
       if (selectedGenre && GENRE_SLUG_MAP[selectedGenre]) {
         const genreSlug = GENRE_SLUG_MAP[selectedGenre];
-        [1, 2, 3, 4, 5].forEach(p => {
-          requests.push(axios.get(`https://phimapi.com/v1/api/the-loai/${genreSlug}?page=${p}&limit=30`, { timeout: 5000 }).catch(() => null));
-        });
-      } else {
-        [startP, startP + 1, startP + 2, startP + 3].forEach(p => {
-          requests.push(axios.get(`https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${p}&limit=30`, { timeout: 5000 }).catch(() => null));
+        [1, 2, 3, 4, 5, 6].forEach(p => {
+          requests.push(axios.get(`https://phimapi.com/v1/api/the-loai/${genreSlug}?page=${p}&limit=30`, { timeout: 3500 }).catch(() => null));
         });
       }
 
@@ -359,6 +348,9 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
       });
 
       let animeItems = rawItems.filter(i => isAnimationItem(i) && isCountryMatch(i, targetCountry));
+      if (animeItems.length < 5) {
+        animeItems = rawItems.filter(i => isAnimationItem(i));
+      }
 
       let formatFiltered = animeItems.filter(i => {
         const isMovie = isMovieAnimeFormat(i);
@@ -367,23 +359,39 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
         return true;
       });
 
-      if (selectedGenre) {
-        const genreSlug = GENRE_SLUG_MAP[selectedGenre] || selectedGenre;
-        items = formatFiltered.filter(i => matchesGenreFilter(i, selectedGenre, genreSlug));
-      } else {
-        items = formatFiltered;
+      if (formatFiltered.length === 0) {
+        formatFiltered = animeItems;
       }
 
+      let finalFiltered = formatFiltered;
+      if (selectedGenre) {
+        const genreSlug = GENRE_SLUG_MAP[selectedGenre] || selectedGenre;
+        finalFiltered = formatFiltered.filter(i => matchesGenreFilter(i, selectedGenre, genreSlug));
+      }
+
+      // CƠ CHẾ SMART FILL: NẾU THỂ LOẠI KHÓ/NGÁCH VẪN ÍT PHIM, BỔ SUNG THÊM MOVIE ANIME ĐỂ DANH SÁCH LUÔN ĐẦY ĐẶN
+      if (finalFiltered.length < 12) {
+        formatFiltered.forEach(i => {
+          if (!finalFiltered.some(f => f.slug === i.slug)) {
+            finalFiltered.push(i);
+          }
+        });
+      }
+
+      items = finalFiltered;
+
     } else {
+      // PHIM NGƯỜI ĐÓNG (LIVE-ACTION)
       let fetchedItems = [];
 
       if (selectedGenre && GENRE_SLUG_MAP[selectedGenre]) {
         const genreSlug = GENRE_SLUG_MAP[selectedGenre];
-        const pagesToFetch = [1, 2, 3, 4, 5];
+        const startP = Math.max(1, (pageToFetch - 1) * 3 + 1);
+        const pagesToFetch = Array.from({ length: 8 }, (_, i) => startP + i);
 
         const responses = await Promise.all(
           pagesToFetch.map(p =>
-            axios.get(`https://phimapi.com/v1/api/the-loai/${genreSlug}?page=${p}&limit=30`, { timeout: 5000 }).catch(() => null)
+            axios.get(`https://phimapi.com/v1/api/the-loai/${genreSlug}?page=${p}&limit=30`, { timeout: 3500 }).catch(() => null)
           )
         );
 
@@ -393,7 +401,7 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
         });
       } else {
         const apiUrl = API_MAP[id] || `https://phimapi.com/danh-sach/phim-moi-cap-nhat`;
-        const { data } = await axios.get(`${apiUrl}?page=${pageToFetch}&limit=30`, { timeout: 6000 });
+        const { data } = await axios.get(`${apiUrl}?page=${pageToFetch}&limit=30`, { timeout: 3000 });
         fetchedItems = data?.data?.items || data?.items || [];
       }
 
@@ -408,6 +416,8 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
 
       items = fetchedItems.filter(i => {
         if (!i || !i.slug || seenSlugs.has(i.slug)) return false;
+        
+        // CHẶN HOÀN TOÀN ANIME KHỎI MỤC NGƯỜI ĐÓNG
         if (isAnimationItem(i)) return false;
 
         if (requiredCountry) {
@@ -416,27 +426,15 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
           if (!cStr.includes(target) && !cStr.includes(requiredCountry)) return false;
         }
 
-        if (selectedGenre) {
-          const genreSlug = GENRE_SLUG_MAP[selectedGenre] || selectedGenre;
-          if (!matchesGenreFilter(i, selectedGenre, genreSlug)) return false;
-        }
-
         seenSlugs.add(i.slug);
         return true;
       });
     }
 
     const defaultType = (id === 'stp_chieurap' || id === 'stp_anime_movie' || id === 'stp_latest_movies') ? 'movie' : 'series';
-    let metas = items.map(item => createCatalogMeta(item, defaultType));
-
-    // CHỐNG MÀN HÌNH ĐEN: NẾU BỊ LỌC SẠCH DỮ LIỆU THÌ LẤY LẠI DỮ LIỆU GỐC
-    if (metas.length === 0 && !selectedGenre) {
-      const { data } = await axios.get(`https://phimapi.com/danh-sach/phim-moi-cap-nhat?page=1`, { timeout: 5000 }).catch(() => ({ data: {} }));
-      const backupList = data?.items || data?.data?.items || [];
-      metas = backupList.map(item => createCatalogMeta(item, defaultType));
-    }
-
+    const metas = items.map(item => createCatalogMeta(item, defaultType));
     const responsePayload = { metas };
+
     catalogResponseCache.set(cacheKey, { time: Date.now(), payload: responsePayload });
 
     return res.json(responsePayload);
@@ -454,7 +452,7 @@ app.get(['/meta/:type/:id.json', '/meta/:type/:id/:extra.json'], async (req, res
     let epData = [];
 
     try {
-      const { data } = await axios.get(`https://phimapi.com/phim/${slug}`, { timeout: 6000 });
+      const { data } = await axios.get(`https://phimapi.com/phim/${slug}`, { timeout: 3500 });
       if (data?.movie) {
         movie = data.movie;
         epData = data?.episodes?.[0]?.server_data || [];
@@ -515,11 +513,27 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
     let streams = [];
 
     try {
-      const { data } = await axios.get(`https://phimapi.com/phim/${slug}`, { timeout: 6000 });
+      const { data } = await axios.get(`https://phimapi.com/phim/${slug}`, { timeout: 3500 });
       const servers = data?.episodes || [];
       servers.forEach((srv, sIdx) => {
         const episodes = srv.server_data || [];
         const ep = episodes.find(e => e.slug === epSlug) || episodes[0];
         if (ep && ep.link_m3u8) {
           streams.push({
-            name: `Server FHD [${srv.server_name || `Nguồn 
+            name: `Server FHD [${srv.server_name || `Nguồn ${sIdx + 1}`}]`,
+            title: ep.name || 'Phát chính',
+            url: ep.link_m3u8
+          });
+        }
+      });
+    } catch (e) {}
+
+    return res.json({ streams });
+  }
+
+  res.json({ streams: [] });
+});
+
+const PORT = process.env.PORT || 7000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Fast v21.1.39)`));
+    
