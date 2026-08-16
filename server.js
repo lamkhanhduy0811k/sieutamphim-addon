@@ -31,9 +31,28 @@ const GENRES = [
   'Khoa Học', 'Thần Thoại', 'Chiến Tranh', 'Học Đường'
 ];
 
+const GENRE_SLUG_MAP = {
+  'hành động': 'hanh-dong',
+  'tình cảm': 'tinh-cam',
+  'hài hước': 'hai-huoc',
+  'cổ trang': 'co-trang',
+  'tâm lý': 'tam-ly',
+  'viễn tưởng': 'vien-tuong',
+  'kinh dị': 'kinh-di',
+  'hình sự': 'hinh-su',
+  'võ thuật': 'vo-thuat',
+  'gia đình': 'gia-dinh',
+  'phiêu lưu': 'phieu-luu',
+  'hoạt hình': 'hoat-hinh',
+  'khoa học': 'khoa-hoc',
+  'thần thoại': 'than-thoai',
+  'chiến tranh': 'chien-tranh',
+  'học đường': 'hoc-duong'
+};
+
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio.v2',
-  version: '21.1.25',
+  version: '21.1.27',
   name: 'Sưu Tầm Phim',
   description: 'Kho phim Vietsub, Lồng Tiếng & Thuyết Minh chất lượng cao. Cập nhật liên tục phim chiếu rạp, anime và truyền hình Á - Âu.',
   logo: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=500&auto=format&fit=crop&q=60',
@@ -135,7 +154,7 @@ const MANIFEST = {
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.25!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.27!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 function getCleanPlot(item) {
@@ -202,9 +221,6 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
       const searchUrl = `https://phimapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(searchQuery)}&limit=50`;
       const { data } = await axios.get(searchUrl, { timeout: 3500 });
       let items = data?.data?.items || [];
-      if (selectedGenre) {
-        items = items.filter(i => JSON.stringify(i.category || '').toLowerCase().includes(selectedGenre));
-      }
       const metas = items.map(item => createCatalogMeta(item, item.type === 'single' ? 'movie' : 'series'));
       return res.json({ metas });
     } catch (e) {
@@ -220,34 +236,40 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
 
   try {
     const pageToFetch = Math.floor(skip / 30) + 1;
-    const apiUrl = API_MAP[id] || `https://phimapi.com/danh-sach/phim-moi-cap-nhat`;
     let items = [];
 
-    // Tải song song nhiều trang hơn khi người dùng lọc thể loại để đảm bảo không bị thiếu phim
-    if (id === 'stp_anime_movie') {
-      const startP = (pageToFetch - 1) * 10 + 1;
-      const pages = Array.from({ length: 10 }, (_, i) => startP + i);
-      const responses = await Promise.all(
-        pages.map(p => axios.get(`${apiUrl}?page=${p}&limit=50`, { timeout: 3500 }).catch(() => null))
-      );
-      responses.forEach(r => {
-        const list = r?.data?.data?.items || r?.data?.items || [];
-        items = items.concat(list);
-      });
-    } else if (id === 'stp_anime' || id === 'stp_hoathinh' || selectedGenre) {
-      const fetchCount = selectedGenre ? 5 : 4;
-      const startP = (pageToFetch - 1) * fetchCount + 1;
-      const pages = Array.from({ length: fetchCount }, (_, i) => startP + i);
-      const responses = await Promise.all(
-        pages.map(p => axios.get(`${apiUrl}?page=${p}&limit=50`, { timeout: 3500 }).catch(() => null))
-      );
-      responses.forEach(r => {
-        const list = r?.data?.data?.items || r?.data?.items || [];
-        items = items.concat(list);
-      });
+    if (selectedGenre && GENRE_SLUG_MAP[selectedGenre]) {
+      const genreSlug = GENRE_SLUG_MAP[selectedGenre];
+      const genreUrl = `https://phimapi.com/v1/api/the-loai/${genreSlug}?page=${pageToFetch}&limit=30`;
+      const { data } = await axios.get(genreUrl, { timeout: 3500 });
+      items = data?.data?.items || [];
     } else {
-      const { data } = await axios.get(`${apiUrl}?page=${pageToFetch}&limit=30`, { timeout: 3000 });
-      items = data?.data?.items || data?.items || [];
+      const apiUrl = API_MAP[id] || `https://phimapi.com/danh-sach/phim-moi-cap-nhat`;
+
+      if (id === 'stp_anime_movie') {
+        const startP = (pageToFetch - 1) * 10 + 1;
+        const pages = Array.from({ length: 10 }, (_, i) => startP + i);
+        const responses = await Promise.all(
+          pages.map(p => axios.get(`${apiUrl}?page=${p}&limit=50`, { timeout: 3500 }).catch(() => null))
+        );
+        responses.forEach(r => {
+          const list = r?.data?.data?.items || r?.data?.items || [];
+          items = items.concat(list);
+        });
+      } else if (id === 'stp_anime' || id === 'stp_hoathinh') {
+        const startP = (pageToFetch - 1) * 4 + 1;
+        const pages = Array.from({ length: 4 }, (_, i) => startP + i);
+        const responses = await Promise.all(
+          pages.map(p => axios.get(`${apiUrl}?page=${p}&limit=50`, { timeout: 3500 }).catch(() => null))
+        );
+        responses.forEach(r => {
+          const list = r?.data?.data?.items || r?.data?.items || [];
+          items = items.concat(list);
+        });
+      } else {
+        const { data } = await axios.get(`${apiUrl}?page=${pageToFetch}&limit=30`, { timeout: 3000 });
+        items = data?.data?.items || data?.items || [];
+      }
     }
 
     if (id === 'stp_anime') {
@@ -275,14 +297,6 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
       items = items.filter(i => {
         const cStr = JSON.stringify(i.country || '').toLowerCase();
         return cStr.includes('trung quốc') || cStr.includes('china');
-      });
-    }
-
-    // Lọc theo thể loại nếu người dùng chọn trên app
-    if (selectedGenre) {
-      items = items.filter(i => {
-        const catStr = JSON.stringify(i.category || '').toLowerCase();
-        return catStr.includes(selectedGenre);
       });
     }
 
@@ -390,5 +404,5 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 });
 
 const PORT = process.env.PORT || 7000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Fast v21.1.25)`));
-          
+app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Fast v21.1.27)`));
+  
