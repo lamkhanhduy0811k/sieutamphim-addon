@@ -26,9 +26,9 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio.v2',
-  version: '21.1.15',
-  name: 'Sưu Tầm Phim (Full Catalog Plot)',
-  description: 'Hiển thị trọn vẹn đoạn tóm tắt nội dung phim ngay trên màn hình chính danh mục TV',
+  version: '21.1.16',
+  name: 'Sưu Tầm Phim (Full Catalog Logo & Plot)',
+  description: 'Hiển thị logo phim và đoạn tóm tắt nội dung ngay màn hình chính TV',
   logo: 'https://i.ibb.co/689Q287/1000004533.jpg',
   resources: ['catalog', 'meta', 'stream'],
   types: ['movie', 'series'],
@@ -73,7 +73,7 @@ const MANIFEST = {
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.15!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.16!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 const cacheStore = {
@@ -102,11 +102,25 @@ function getCleanPlot(item) {
   return `${item.origin_name ? item.origin_name + ' • ' : ''}${item.episode_current || 'HD'} (${item.year || '2026'})`;
 }
 
+function createCatalogMeta(item, defaultType) {
+  const cdn = 'https://phimimg.com';
+  const p = item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`;
+  const b = item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`;
+  
+  return {
+    id: `phimapi:${item.slug}`,
+    type: item.type === 'single' ? 'movie' : (item.type === 'series' ? 'series' : defaultType),
+    name: item.name,
+    poster: p,
+    background: b || p,
+    logo: p,
+    description: getCleanPlot(item)
+  };
+}
+
 async function loadAllData() {
   if (cacheStore.isLoaded) return;
   try {
-    const cdn = 'https://phimimg.com';
-
     const moviePromises = [];
     for (let p = 1; p <= 15; p++) {
       moviePromises.push(axios.get(`https://phimapi.com/v1/api/danh-sach/phim-le?page=${p}&limit=50`, { timeout: 5000 }).catch(() => null));
@@ -132,14 +146,7 @@ async function loadAllData() {
     const newUpdatesList = [];
     if (newRes?.data?.items) {
       newRes.data.items.forEach(item => {
-        newUpdatesList.push({
-          id: `phimapi:${item.slug}`,
-          type: item.type === 'single' ? 'movie' : 'series',
-          name: item.name,
-          poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
-          background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
-          description: getCleanPlot(item)
-        });
+        newUpdatesList.push(createCatalogMeta(item, item.type === 'single' ? 'movie' : 'series'));
       });
     }
 
@@ -152,14 +159,7 @@ async function loadAllData() {
     movieRes.forEach(res => {
       if (res?.data?.data?.items) {
         res.data.data.items.forEach(item => {
-          allMovies.push({
-            id: `phimapi:${item.slug}`,
-            type: 'movie',
-            name: item.name,
-            poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
-            background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
-            description: getCleanPlot(item)
-          });
+          allMovies.push(createCatalogMeta(item, 'movie'));
         });
       }
     });
@@ -167,14 +167,7 @@ async function loadAllData() {
     seriesRes.forEach(res => {
       if (res?.data?.data?.items) {
         res.data.data.items.forEach(item => {
-          allSeries.push({
-            id: `phimapi:${item.slug}`,
-            type: 'series',
-            name: item.name,
-            poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
-            background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
-            description: getCleanPlot(item)
-          });
+          allSeries.push(createCatalogMeta(item, 'series'));
         });
       }
     });
@@ -193,14 +186,7 @@ async function loadAllData() {
           const isJapan = cStr.includes('nhật bản') || cStr.includes('japan') || cStr.includes('jp');
 
           if (isJapan) {
-            animeList.push({
-              id: `phimapi:${item.slug}`,
-              type: 'series',
-              name: item.name,
-              poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
-              background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
-              description: getCleanPlot(item)
-            });
+            animeList.push(createCatalogMeta(item, 'series'));
 
             const hasBlacklistedWord = strictBlacklist.some(kw => nameStr.includes(kw) || slugStr.includes(kw));
             if (hasBlacklistedWord) return;
@@ -219,24 +205,10 @@ async function loadAllData() {
                             eStr.includes('full') || eStr.includes('1 tập') || eStr.includes('hoàn tất') || eStr.includes('1/1');
 
             if (isMovie) {
-              animeMovieList.push({
-                id: `phimapi:${item.slug}`,
-                type: 'movie',
-                name: item.name,
-                poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
-                background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
-                description: getCleanPlot(item)
-              });
+              animeMovieList.push(createCatalogMeta(item, 'movie'));
             }
           } else {
-            cnHoathinhList.push({
-              id: `phimapi:${item.slug}`,
-              type: 'series',
-              name: item.name,
-              poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
-              background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
-              description: getCleanPlot(item)
-            });
+            cnHoathinhList.push(createCatalogMeta(item, 'series'));
           }
         });
       }
@@ -259,7 +231,6 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
   const extra = parseExtra(extraStr);
   const skip = parseInt(extra.skip) || 0;
   const searchQuery = extra.search ? decodeURIComponent(extra.search).trim() : null;
-  const cdn = 'https://phimimg.com';
   const limit = 50;
 
   if (searchQuery) {
@@ -270,14 +241,7 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
       const searchUrl = `https://phimapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(searchQuery)}&limit=50`;
       const { data } = await axios.get(searchUrl, { timeout: 5000 });
       const items = data?.data?.items || [];
-      const metas = items.map(item => ({
-        id: `phimapi:${item.slug}`,
-        type: item.type === 'single' ? 'movie' : 'series',
-        name: item.name,
-        poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
-        background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
-        description: getCleanPlot(item)
-      }));
+      const metas = items.map(item => createCatalogMeta(item, item.type === 'single' ? 'movie' : 'series'));
       return res.json({ metas });
     } catch (e) {
       return res.json({ metas: [] });
@@ -289,14 +253,7 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
       const pageToFetch = Math.floor(skip / 30) + 1;
       const { data } = await axios.get(`https://phimapi.com/danh-sach/phim-moi-cap-nhat?page=${pageToFetch}`, { timeout: 4000 });
       if (data?.items) {
-        const metas = data.items.map(item => ({
-          id: `phimapi:${item.slug}`,
-          type: item.type === 'single' ? 'movie' : 'series',
-          name: item.name,
-          poster: item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`,
-          background: item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`,
-          description: getCleanPlot(item)
-        }));
+        const metas = data.items.map(item => createCatalogMeta(item, item.type === 'single' ? 'movie' : 'series'));
         return res.json({ metas });
       }
     } catch (e) {}
@@ -485,5 +442,5 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 });
 
 const PORT = process.env.PORT || 7000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT} (Full Catalog Plot v21.1.15)`));
-                                                               
+app.listen(PORT, () => console.log(`Server running on port ${PORT} (Full Catalog Logo & Plot v21.1.16)`));
+      
