@@ -26,7 +26,7 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio.v2',
-  version: '21.1.40',
+  version: '21.1.41',
   name: 'Sưu Tầm Phim',
   description: 'Kho phim Vietsub, Lồng Tiếng & Thuyết Minh chất lượng cao. Cập nhật liên tục phim chiếu rạp, anime và truyền hình Á - Âu.',
   logo: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=500&auto=format&fit=crop&q=60',
@@ -115,7 +115,7 @@ const MANIFEST = {
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.40!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.41!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 function getCleanPlot(item) {
@@ -189,8 +189,8 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
     let items = [];
 
     if (id === 'stp_anime_movie') {
-      // Quét gộp 25 trang hoạt hình để gom kho movie anime cực khủng và chuẩn xác
-      const pagePromises = Array.from({ length: 25 }, (_, i) => i + 1).map(p => 
+      // Quét gộp 50 trang hoạt hình để gom kho movie anime lên đến khoảng 500 bộ chất lượng
+      const pagePromises = Array.from({ length: 50 }, (_, i) => i + 1).map(p => 
         axios.get(`https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${p}&limit=40`, { timeout: 4000 })
           .catch(() => ({ data: {} }))
       );
@@ -201,7 +201,7 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
         allItems = allItems.concat(list);
       });
 
-      // Lọc siêu khắt khe: chỉ lấy phim lẻ Nhật Bản, loại bỏ tuyệt đối các phim bộ/series nhiều tập
+      // Lọc sạch sẽ và khắt khe để đảm bảo 100% là movie anime / phim lẻ Nhật Bản
       items = allItems.filter(i => {
         const cStr = JSON.stringify(i.country || '').toLowerCase();
         const epStr = (i.episode_current || '').toLowerCase();
@@ -212,14 +212,13 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
         const isSingle = typeStr === 'single' || typeStr === 'movie';
         const isMovieLabel = epStr.includes('full') || epStr.includes('1 tập') || epStr.includes('tập full') || nameStr.includes('movie');
         
-        // Chặn tuyệt đối các phim có dấu hiệu là phim bộ / series dài tập
         const hasSeriesEpisode = epStr.includes('tập') && !epStr.includes('1 tập') && !epStr.includes('full') && !epStr.includes('tập full');
         const hasSeason = nameStr.includes('phần ') || nameStr.includes('season ');
 
         return isJapan && (isSingle || isMovieLabel) && !hasSeriesEpisode && !hasSeason;
       });
 
-      // Phân trang kết quả đã lọc
+      // Phân trang dữ liệu lớn
       items = items.slice(skip, skip + 40);
     } else {
       const pageToFetch = Math.floor(skip / 30) + 1;
@@ -340,5 +339,5 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 });
 
 const PORT = process.env.PORT || 7000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Fast v21.1.40)`));
-        
+app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Fast v21.1.41)`));
+      
