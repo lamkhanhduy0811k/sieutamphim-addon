@@ -26,7 +26,7 @@ function parseExtra(extraStr) {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio.v2',
-  version: '21.1.41',
+  version: '21.1.44',
   name: 'Sưu Tầm Phim',
   description: 'Kho phim Vietsub, Lồng Tiếng & Thuyết Minh chất lượng cao. Cập nhật liên tục phim chiếu rạp, anime và truyền hình Á - Âu.',
   logo: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=500&auto=format&fit=crop&q=60',
@@ -115,7 +115,7 @@ const MANIFEST = {
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.41!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.44!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 function getCleanPlot(item) {
@@ -167,6 +167,24 @@ const API_MAP = {
   'stp_hot': 'https://phimapi.com/danh-sach/phim-moi-cap-nhat'
 };
 
+// Hàm quét phân đoạn thông minh giúp tải lượng lớn trang an toàn không bị timeout
+async function fetchHoatHinhBatch(totalPages = 150, batchSize = 15) {
+  let allItems = [];
+  for (let i = 0; i < totalPages; i += batchSize) {
+    const batch = Array.from({ length: Math.min(batchSize, totalPages - i) }, (_, idx) => i + idx + 1);
+    const promises = batch.map(p => 
+      axios.get(`https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${p}&limit=50`, { timeout: 4000 })
+        .catch(() => ({ data: {} }))
+    );
+    const results = await Promise.all(promises);
+    results.forEach(r => {
+      const list = r.data?.data?.items || r.data?.items || [];
+      allItems = allItems.concat(list);
+    });
+  }
+  return allItems;
+}
+
 app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (req, res) => {
   const { id, extra: extraStr } = req.params;
   const extra = parseExtra(extraStr);
@@ -189,19 +207,9 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
     let items = [];
 
     if (id === 'stp_anime_movie') {
-      // Quét gộp 50 trang hoạt hình để gom kho movie anime lên đến khoảng 500 bộ chất lượng
-      const pagePromises = Array.from({ length: 50 }, (_, i) => i + 1).map(p => 
-        axios.get(`https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${p}&limit=40`, { timeout: 4000 })
-          .catch(() => ({ data: {} }))
-      );
-      const results = await Promise.all(pagePromises);
-      let allItems = [];
-      results.forEach(r => {
-        const list = r.data?.data?.items || r.data?.items || [];
-        allItems = allItems.concat(list);
-      });
+      // Quét sâu 150 trang hoạt hình theo cụm an toàn để đạt chuẩn ~500 bộ movie anime chất lượng
+      const allItems = await fetchHoatHinhBatch(150, 15);
 
-      // Lọc sạch sẽ và khắt khe để đảm bảo 100% là movie anime / phim lẻ Nhật Bản
       items = allItems.filter(i => {
         const cStr = JSON.stringify(i.country || '').toLowerCase();
         const epStr = (i.episode_current || '').toLowerCase();
@@ -218,7 +226,6 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
         return isJapan && (isSingle || isMovieLabel) && !hasSeriesEpisode && !hasSeason;
       });
 
-      // Phân trang dữ liệu lớn
       items = items.slice(skip, skip + 40);
     } else {
       const pageToFetch = Math.floor(skip / 30) + 1;
@@ -339,5 +346,5 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 });
 
 const PORT = process.env.PORT || 7000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Fast v21.1.41)`));
-                 
+app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Fast v21.1.44)`));
+               
