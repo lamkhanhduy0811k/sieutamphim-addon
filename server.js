@@ -199,21 +199,28 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
     const apiUrl = API_MAP[id] || `https://phimapi.com/danh-sach/phim-moi-cap-nhat`;
     let items = [];
 
-    // Tải song song 3 trang đối với các mục lọc đặc thù để luôn có đủ số lượng phim
-    if (id === 'stp_anime_movie' || id === 'stp_anime' || id === 'stp_hoathinh') {
-      const p1 = pageToFetch;
-      const p2 = pageToFetch + 1;
-      const p3 = pageToFetch + 2;
-      const [r1, r2, r3] = await Promise.all([
-        axios.get(`${apiUrl}?page=${p1}&limit=50`, { timeout: 3500 }).catch(() => null),
-        axios.get(`${apiUrl}?page=${p2}&limit=50`, { timeout: 3500 }).catch(() => null),
-        axios.get(`${apiUrl}?page=${p3}&limit=50`, { timeout: 3500 }).catch(() => null)
-      ]);
-      items = [
-        ...(r1?.data?.data?.items || r1?.data?.items || []),
-        ...(r2?.data?.data?.items || r2?.data?.items || []),
-        ...(r3?.data?.data?.items || r3?.data?.items || [])
-      ];
+    if (id === 'stp_anime_movie') {
+      // Quét song song 10 trang (500 phim) để có danh sách Movie Anime đầy đủ
+      const startP = (pageToFetch - 1) * 10 + 1;
+      const pages = Array.from({ length: 10 }, (_, i) => startP + i);
+      const responses = await Promise.all(
+        pages.map(p => axios.get(`${apiUrl}?page=${p}&limit=50`, { timeout: 3500 }).catch(() => null))
+      );
+      responses.forEach(r => {
+        const list = r?.data?.data?.items || r?.data?.items || [];
+        items = items.concat(list);
+      });
+    } else if (id === 'stp_anime' || id === 'stp_hoathinh') {
+      // Quét song song 4 trang
+      const startP = (pageToFetch - 1) * 4 + 1;
+      const pages = Array.from({ length: 4 }, (_, i) => startP + i);
+      const responses = await Promise.all(
+        pages.map(p => axios.get(`${apiUrl}?page=${p}&limit=50`, { timeout: 3500 }).catch(() => null))
+      );
+      responses.forEach(r => {
+        const list = r?.data?.data?.items || r?.data?.items || [];
+        items = items.concat(list);
+      });
     } else {
       const { data } = await axios.get(`${apiUrl}?page=${pageToFetch}&limit=30`, { timeout: 3000 });
       items = data?.data?.items || data?.items || [];
@@ -352,4 +359,4 @@ app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req,
 
 const PORT = process.env.PORT || 7000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Fast v21.1.25)`));
-        
+                                                                       
