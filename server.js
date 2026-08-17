@@ -75,9 +75,9 @@ const GENRE_KEYWORDS = {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio.v2',
-  version: '21.1.44',
+  version: '21.1.45',
   name: 'Sưu Tầm Phim',
-  description: 'Kho phim Vietsub, Lồng Tiếng & Thuyết Minh chất lượng cao. Có bộ lọc năm và nhãn phân loại.',
+  description: 'Kho phim Vietsub, Lồng Tiếng & Thuyết Minh chất lượng cao.',
   logo: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=500&auto=format&fit=crop&q=60',
   resources: ['catalog', 'meta', 'stream'],
   types: ['movie', 'series'],
@@ -241,7 +241,7 @@ const MANIFEST = {
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.44!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.45!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 function getCleanPlot(item) {
@@ -253,7 +253,6 @@ function getCleanPlot(item) {
   return `${item.origin_name ? item.origin_name + ' • ' : ''}${item.episode_current || 'HD'} (${item.year || '2026'})`;
 }
 
-// Hàm nhận diện nhãn âm thanh/bản dịch
 function getAudioTypeLabel(item) {
   const text = ((item?.episode_current || '') + ' ' + (item?.quality || '') + ' ' + (item?.name || '')).toLowerCase();
   if (text.includes('thuyết minh') || text.includes('thuyet minh')) return 'Thuyết Minh';
@@ -360,48 +359,48 @@ const catalogResponseCache = new Map();
 const CACHE_TTL = 10 * 60 * 1000;
 
 app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (req, res) => {
-  const { id, extra: extraStr } = req.params;
-  const extra = parseExtra(extraStr);
-  const skip = parseInt(extra.skip) || 0;
-  const searchQuery = extra.search ? decodeURIComponent(extra.search).trim() : null;
-  const selectedGenre = extra.genre ? decodeURIComponent(extra.genre).trim().toLowerCase() : null;
-  const selectedYear = (extra.year && extra.year !== 'Tất cả năm') ? decodeURIComponent(extra.year).trim() : null;
-
-  if (searchQuery) {
-    try {
-      const searchUrl = `https://phimapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(searchQuery)}&limit=50`;
-      const { data } = await axios.get(searchUrl, { timeout: 3500 });
-      let items = data?.data?.items || [];
-      if (selectedYear) {
-        items = items.filter(i => String(i.year) === selectedYear);
-      }
-      const metas = items.map(item => createCatalogMeta(item, item.type === 'single' ? 'movie' : 'series'));
-      return res.json({ metas });
-    } catch (e) {
-      return res.json({ metas: [] });
-    }
-  }
-
-  const cacheKey = `${id}_${skip}_${selectedGenre || 'all'}_${selectedYear || 'all'}`;
-  const cachedData = catalogResponseCache.get(cacheKey);
-  if (cachedData && (Date.now() - cachedData.time < CACHE_TTL)) {
-    return res.json(cachedData.payload);
-  }
-
   try {
+    const { id, extra: extraStr } = req.params;
+    const extra = parseExtra(extraStr);
+    const skip = parseInt(extra.skip) || 0;
+    const searchQuery = extra.search ? decodeURIComponent(extra.search).trim() : null;
+    const selectedGenre = extra.genre ? decodeURIComponent(extra.genre).trim().toLowerCase() : null;
+    const selectedYear = (extra.year && extra.year !== 'Tất cả năm') ? decodeURIComponent(extra.year).trim() : null;
+
+    if (searchQuery) {
+      try {
+        const searchUrl = `https://phimapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(searchQuery)}&limit=50`;
+        const { data } = await axios.get(searchUrl, { timeout: 3500 });
+        let items = data?.data?.items || [];
+        if (selectedYear) {
+          items = items.filter(i => String(i.year) === selectedYear);
+        }
+        const metas = items.map(item => createCatalogMeta(item, item.type === 'single' ? 'movie' : 'series'));
+        return res.json({ metas });
+      } catch (e) {
+        return res.json({ metas: [] });
+      }
+    }
+
+    const cacheKey = `${id}_${skip}_${selectedGenre || 'all'}_${selectedYear || 'all'}`;
+    const cachedData = catalogResponseCache.get(cacheKey);
+    if (cachedData && (Date.now() - cachedData.time < CACHE_TTL)) {
+      return res.json(cachedData.payload);
+    }
+
     const pageToFetch = Math.floor(skip / 30) + 1;
     let items = [];
     const isAnimeCatalog = (id === 'stp_anime' || id === 'stp_anime_m' || id === 'stp_anime_movie' || id === 'stp_hoathinh');
 
     if (isAnimeCatalog) {
       const startP = Math.max(1, (pageToFetch - 1) * 4 + 1);
-      const pages = Array.from({ length: 15 }, (_, i) => startP + i);
+      const pages = Array.from({ length: 10 }, (_, i) => startP + i);
 
       const requests = pages.map(p => axios.get(`https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${p}&limit=30`, { timeout: 3500 }).catch(() => null));
 
       if (selectedGenre && GENRE_SLUG_MAP[selectedGenre]) {
         const genreSlug = GENRE_SLUG_MAP[selectedGenre];
-        [1, 2, 3, 4, 5, 6].forEach(p => {
+        [1, 2, 3, 4].forEach(p => {
           requests.push(axios.get(`https://phimapi.com/v1/api/the-loai/${genreSlug}?page=${p}&limit=30`, { timeout: 3500 }).catch(() => null));
         });
       }
@@ -447,14 +446,6 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
         finalFiltered = finalFiltered.filter(i => String(i.year) === selectedYear);
       }
 
-      if (finalFiltered.length < 12 && !selectedYear) {
-        formatFiltered.forEach(i => {
-          if (!finalFiltered.some(f => f.slug === i.slug)) {
-            finalFiltered.push(i);
-          }
-        });
-      }
-
       items = finalFiltered;
 
     } else {
@@ -462,8 +453,8 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
 
       if (selectedGenre && GENRE_SLUG_MAP[selectedGenre]) {
         const genreSlug = GENRE_SLUG_MAP[selectedGenre];
-        const startP = Math.max(1, (pageToFetch - 1) * 3 + 1);
-        const pagesToFetch = Array.from({ length: 8 }, (_, i) => startP + i);
+        const startP = Math.max(1, (pageToFetch - 1) * 2 + 1);
+        const pagesToFetch = Array.from({ length: 5 }, (_, i) => startP + i);
 
         const responses = await Promise.all(
           pagesToFetch.map(p =>
@@ -521,30 +512,34 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
 });
 
 app.get(['/meta/:type/:id.json', '/meta/:type/:id/:extra.json'], async (req, res) => {
-  const { id, type } = req.params;
+  try {
+    const { id, type } = req.params;
 
-  if (id.startsWith('phimapi:')) {
-    const slug = id.replace('phimapi:', '').split(':')[0];
-    let movie = null;
-    let epData = [];
+    if (id.startsWith('phimapi:')) {
+      const slug = id.replace('phimapi:', '').split(':')[0];
+      let movie = null;
+      let epData = [];
 
-    try {
-      const { data } = await axios.get(`https://phimapi.com/phim/${slug}`, { timeout: 3500 });
-      if (data?.movie) {
-        movie = data.movie;
-        epData = data?.episodes?.[0]?.server_data || [];
-      }
-    } catch (e) {}
+      try {
+        const { data } = await axios.get(`https://phimapi.com/phim/${slug}`, { timeout: 3500 });
+        if (data?.movie) {
+          movie = data.movie;
+          epData = data?.episodes?.[0]?.server_data || [];
+        }
+      } catch (e) {}
 
-    if (!movie) return res.json({ meta: null });
+      if (!movie) return res.json({ meta: null });
 
-    const p = movie.poster_url?.startsWith('http') ? movie.poster_url : `https://phimimg.com/${movie.poster_url}`;
-    const b = movie.thumb_url?.startsWith('http') ? movie.thumb_url : `https://phimimg.com/${movie.thumb_url}`;
-    const thumbImg = b || p;
+      const p = movie.poster_url?.startsWith('http') ? movie.poster_url : `https://phimimg.com/${movie.poster_url}`;
+      const b = movie.thumb_url?.startsWith('http') ? movie.thumb_url : `https://phimimg.com/${movie.thumb_url}`;
+      const thumbImg = b || p;
 
-    const genres = Array.isArray(movie.category) 
-      ? movie.category.map(c => c.name || c).filter(Boolean) 
-      : ['Phim Vietsub'];
+      const genres = Array.isArray(movie.category) 
+        ? movie.category.map(c => c.name || c).filter(Boolean) 
+        : ['Phim Vietsub'];
 
-    const director = Array.isArray(movie.director) ? movie.director.filter(d => d && d !== 'Đang cập nhật') : [];
-    const cast = Ar
+      const director = Array.isArray(movie.director) ? movie.director.filter(d => d && d !== 'Đang cập nhật') : [];
+      const cast = Array.isArray(movie.actor) ? movie.actor.filter(a => a && a !== 'Đang cập nhật') : [];
+
+      let cleanDescription = (movie.content || movie.description || '').replace(/<[^>]*>?/gm, '').trim();
+      cons
