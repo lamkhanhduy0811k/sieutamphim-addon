@@ -32,21 +32,11 @@ const GENRES = [
 ];
 
 const GENRE_SLUG_MAP = {
-  'hành động': 'hanh-dong',
-  'tình cảm': 'tinh-cam',
-  'hài hước': 'hai-huoc',
-  'cổ trang': 'co-trang',
-  'tâm lý': 'tam-ly',
-  'viễn tưởng': 'vien-tuong',
-  'kinh dị': 'kinh-di',
-  'hình sự': 'hinh-su',
-  'võ thuật': 'vo-thuat',
-  'gia đình': 'gia-dinh',
-  'phiêu lưu': 'phieu-luu',
-  'hoạt hình': 'hoat-hinh',
-  'khoa học': 'khoa-hoc',
-  'thần thoại': 'than-thoai',
-  'chiến tranh': 'chien-tranh',
+  'hành động': 'hanh-dong', 'tình cảm': 'tinh-cam', 'hài hước': 'hai-huoc',
+  'cổ trang': 'co-trang', 'tâm lý': 'tam-ly', 'viễn tưởng': 'vien-tuong',
+  'kinh dị': 'kinh-di', 'hình sự': 'hinh-su', 'võ thuật': 'vo-thuat',
+  'gia đình': 'gia-dinh', 'phiêu lưu': 'phieu-luu', 'hoạt hình': 'hoat-hinh',
+  'khoa học': 'khoa-hoc', 'thần thoại': 'than-thoai', 'chiến tranh': 'chien-tranh',
   'học đường': 'hoc-duong'
 };
 
@@ -70,124 +60,38 @@ const GENRE_KEYWORDS = {
 
 const MANIFEST = {
   id: 'org.sieutamphim.nuvio.v2',
-  version: '21.1.39',
+  version: '21.1.43',
   name: 'Sưu Tầm Phim',
-  description: 'Kho phim Vietsub, Lồng Tiếng & Thuyết Minh chất lượng cao. Cập nhật liên tục phim chiếu rạp, anime và truyền hình Á - Âu.',
+  description: 'Kho phim Vietsub, Lồng Tiếng & Thuyết Minh chất lượng cao. Tải cực nhanh.',
   logo: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=500&auto=format&fit=crop&q=60',
   resources: ['catalog', 'meta', 'stream'],
   types: ['movie', 'series'],
   catalogs: [
-    {
-      type: 'movie',
-      id: 'stp_hot',
-      name: 'Sưu Tầm Phim - Phim Hot Thịnh Hành',
-      genres: GENRES,
-      extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }]
-    },
-    {
-      type: 'movie',
-      id: 'stp_new_updates',
-      name: 'Sưu Tầm Phim - Phim Mới & Tìm Kiếm',
-      genres: GENRES,
-      extra: [{ name: 'search', isRequired: false }, { name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }]
-    },
-    {
-      type: 'movie',
-      id: 'stp_anime_m',
-      name: 'Sưu Tầm Phim - Anime Nhật Bản',
-      genres: GENRES,
-      extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }]
-    },
-    {
-      type: 'movie',
-      id: 'stp_anime_movie',
-      name: 'Sưu Tầm Phim - Movie Anime Chiếu Rạp',
-      genres: GENRES,
-      extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }]
-    },
-    {
-      type: 'movie',
-      id: 'stp_chieurap',
-      name: 'Sưu Tầm Phim - Phim Chiếu Rạp',
-      genres: GENRES,
-      extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }]
-    },
-    {
-      type: 'movie',
-      id: 'stp_latest_movies',
-      name: 'Sưu Tầm Phim - Phim Lẻ',
-      genres: GENRES,
-      extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }]
-    },
-    {
-      type: 'series',
-      id: 'stp_anime',
-      name: 'Sưu Tầm Phim - Anime Nhật Bản',
-      genres: GENRES,
-      extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }]
-    },
-    {
-      type: 'series',
-      id: 'stp_hoathinh',
-      name: 'Sưu Tầm Phim - Hoạt Hình Trung Quốc',
-      genres: GENRES,
-      extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }]
-    },
-    {
-      type: 'series',
-      id: 'stp_longtieng',
-      name: 'Sưu Tầm Phim - Phim Lồng Tiếng',
-      genres: GENRES,
-      extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }]
-    },
-    {
-      type: 'series',
-      id: 'stp_vietnam',
-      name: 'Sưu Tầm Phim - Phim Việt Nam',
-      genres: GENRES,
-      extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }]
-    },
-    {
-      type: 'series',
-      id: 'stp_hanquoc',
-      name: 'Sưu Tầm Phim - Phim Hàn Quốc',
-      genres: GENRES,
-      extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }]
-    },
-    {
-      type: 'series',
-      id: 'stp_trungquoc',
-      name: 'Sưu Tầm Phim - Phim Trung Quốc',
-      genres: GENRES,
-      extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }]
-    },
-    {
-      type: 'series',
-      id: 'stp_hongkong',
-      name: 'Sưu Tầm Phim - Phim Hồng Kông',
-      genres: GENRES,
-      extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }]
-    },
-    {
-      type: 'series',
-      id: 'stp_latest_series',
-      name: 'Sưu Tầm Phim - Phim Bộ',
-      genres: GENRES,
-      extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }]
-    }
+    { type: 'movie', id: 'stp_hot', name: 'Sưu Tầm Phim - Phim Hot Thịnh Hành', genres: GENRES, extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }] },
+    { type: 'movie', id: 'stp_new_updates', name: 'Sưu Tầm Phim - Phim Mới & Tìm Kiếm', genres: GENRES, extra: [{ name: 'search', isRequired: false }, { name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }] },
+    { type: 'movie', id: 'stp_anime_m', name: 'Sưu Tầm Phim - Anime Nhật Bản', genres: GENRES, extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }] },
+    { type: 'movie', id: 'stp_anime_movie', name: 'Sưu Tầm Phim - Movie Anime Chiếu Rạp', genres: GENRES, extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }] },
+    { type: 'movie', id: 'stp_chieurap', name: 'Sưu Tầm Phim - Phim Chiếu Rạp', genres: GENRES, extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }] },
+    { type: 'movie', id: 'stp_latest_movies', name: 'Sưu Tầm Phim - Phim Lẻ', genres: GENRES, extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }] },
+    { type: 'series', id: 'stp_anime', name: 'Sưu Tầm Phim - Anime Nhật Bản', genres: GENRES, extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }] },
+    { type: 'series', id: 'stp_hoathinh', name: 'Sưu Tầm Phim - Hoạt Hình Trung Quốc', genres: GENRES, extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }] },
+    { type: 'series', id: 'stp_longtieng', name: 'Sưu Tầm Phim - Phim Lồng Tiếng', genres: GENRES, extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }] },
+    { type: 'series', id: 'stp_vietnam', name: 'Sưu Tầm Phim - Phim Việt Nam', genres: GENRES, extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }] },
+    { type: 'series', id: 'stp_hanquoc', name: 'Sưu Tầm Phim - Phim Hàn Quốc', genres: GENRES, extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }] },
+    { type: 'series', id: 'stp_trungquoc', name: 'Sưu Tầm Phim - Phim Trung Quốc', genres: GENRES, extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }] },
+    { type: 'series', id: 'stp_hongkong', name: 'Sưu Tầm Phim - Phim Hồng Kông', genres: GENRES, extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }] },
+    { type: 'series', id: 'stp_latest_series', name: 'Sưu Tầm Phim - Phim Bộ', genres: GENRES, extra: [{ name: 'genre', options: GENRES, isRequired: false }, { name: 'skip', isRequired: false }] }
   ],
   idPrefixes: ['stp:', 'phimapi:']
 };
 
-app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.39!'));
+app.get('/', (req, res) => res.send('SieuTamPhim Addon Server Online v21.1.43!'));
 app.get('/manifest.json', (req, res) => res.json(MANIFEST));
 
 function getCleanPlot(item) {
   let raw = item.content || item.description || '';
   let clean = raw.replace(/<[^>]*>?/gm, '').trim();
-  if (clean && clean.length > 15 && clean !== 'Đang cập nhật') {
-    return clean;
-  }
+  if (clean && clean.length > 15 && clean !== 'Đang cập nhật') return clean;
   return `${item.origin_name ? item.origin_name + ' • ' : ''}${item.episode_current || 'HD'} (${item.year || '2026'})`;
 }
 
@@ -195,13 +99,7 @@ function createCatalogMeta(item, defaultType) {
   const cdn = 'https://phimimg.com';
   const p = item.poster_url?.startsWith('http') ? item.poster_url : `${cdn}/${item.poster_url}`;
   const b = item.thumb_url?.startsWith('http') ? item.thumb_url : `${cdn}/${item.thumb_url}`;
-  
-  const genres = Array.isArray(item.category) 
-    ? item.category.map(c => c.name || c).filter(Boolean) 
-    : ['Phim Vietsub'];
-
-  const yearStr = item.year ? String(item.year) : '2026';
-  const epStr = item.episode_current || 'HD';
+  const genres = Array.isArray(item.category) ? item.category.map(c => c.name || c).filter(Boolean) : ['Phim Vietsub'];
 
   return {
     id: `phimapi:${item.slug}`,
@@ -211,7 +109,7 @@ function createCatalogMeta(item, defaultType) {
     background: b || p,
     description: getCleanPlot(item),
     genres: genres,
-    releaseInfo: `${yearStr} • ${epStr}`,
+    releaseInfo: `${item.year || '2026'} • ${item.episode_current || 'HD'}`,
     posterShape: 'poster'
   };
 }
@@ -221,11 +119,9 @@ function isMovieAnimeFormat(item) {
   const epStr = (item.episode_current || '').toLowerCase();
   const nameStr = (item.name || '').toLowerCase();
   const typeStr = (item.type || '').toLowerCase();
-
   if (typeStr === 'single' || typeStr === 'movie') return true;
   if (epStr.includes('full') || epStr.includes('1 tập') || epStr.includes('phim ngắn') || nameStr.includes('movie') || epStr.includes('hd') || epStr === '1' || epStr === '01/01' || epStr === '1/1') {
-    const hasMultiEp = /tập\s*0*[2-9]|tập\s*[1-9]\d+/i.test(epStr);
-    if (!hasMultiEp) return true;
+    return !/tập\s*0*[2-9]|tập\s*[1-9]\d+/i.test(epStr);
   }
   return false;
 }
@@ -234,11 +130,7 @@ function matchesGenreFilter(item, genreName, genreSlug) {
   if (!genreName) return true;
   const catStr = JSON.stringify(item.category || '').toLowerCase();
   const nameStr = ((item.name || '') + ' ' + (item.origin_name || '') + ' ' + (item.content || '')).toLowerCase();
-
-  if (catStr.includes(genreName.toLowerCase()) || catStr.includes(genreSlug.toLowerCase())) {
-    return true;
-  }
-
+  if (catStr.includes(genreName.toLowerCase()) || catStr.includes(genreSlug.toLowerCase())) return true;
   const keywords = GENRE_KEYWORDS[genreName.toLowerCase()] || [genreName.toLowerCase(), genreSlug.toLowerCase()];
   return keywords.some(kw => catStr.includes(kw) || nameStr.includes(kw));
 }
@@ -247,25 +139,17 @@ function isAnimationItem(item) {
   if (!item) return false;
   const typeStr = (item.type || '').toLowerCase();
   if (typeStr === 'hoathinh' || typeStr === 'anime') return true;
-
   const catStr = JSON.stringify(item.category || '').toLowerCase();
   if (catStr.includes('hoạt hình') || catStr.includes('hoat-hinh') || catStr.includes('anime')) return true;
-
   const nameStr = ((item.name || '') + ' ' + (item.origin_name || '')).toLowerCase();
-  if (nameStr.includes('anime') || nameStr.includes('hoạt hình')) return true;
-
-  return false;
+  return nameStr.includes('anime') || nameStr.includes('hoạt hình');
 }
 
 function isCountryMatch(item, targetCountry) {
   if (!targetCountry) return true;
   const cStr = JSON.stringify(item.country || '').toLowerCase();
-  if (targetCountry === 'china') {
-    return cStr.includes('trung quốc') || cStr.includes('china') || cStr.includes('trung-quoc');
-  } else if (targetCountry === 'japan') {
-    if (cStr.includes('trung quốc') || cStr.includes('china') || cStr.includes('trung-quoc')) return false;
-    return true;
-  }
+  if (targetCountry === 'china') return cStr.includes('trung quốc') || cStr.includes('china') || cStr.includes('trung-quoc');
+  if (targetCountry === 'japan') return !(cStr.includes('trung quốc') || cStr.includes('china') || cStr.includes('trung-quoc'));
   return true;
 }
 
@@ -286,7 +170,95 @@ const API_MAP = {
 };
 
 const catalogResponseCache = new Map();
-const CACHE_TTL = 10 * 60 * 1000;
+const CACHE_TTL = 30 * 60 * 1000; // Lưu Cache 30 phút
+
+async function fetchCatalogData(id, skip = 0, selectedGenre = null) {
+  const pageToFetch = Math.floor(skip / 30) + 1;
+  let items = [];
+  const isAnimeCatalog = (id === 'stp_anime' || id === 'stp_anime_m' || id === 'stp_anime_movie' || id === 'stp_hoathinh');
+
+  if (id === 'stp_hot' && !selectedGenre) {
+    const { data } = await axios.get(`https://phimapi.com/danh-sach/phim-moi-cap-nhat?page=${pageToFetch}`, { timeout: 4000 });
+    let rawList = data?.items || data?.data?.items || [];
+    return { metas: rawList.map(item => createCatalogMeta(item, 'movie')) };
+  }
+
+  if (isAnimeCatalog) {
+    const startP = Math.max(1, (pageToFetch - 1) * 2 + 1);
+    const requests = [];
+    if (selectedGenre && GENRE_SLUG_MAP[selectedGenre]) {
+      const genreSlug = GENRE_SLUG_MAP[selectedGenre];
+      [1, 2, 3].forEach(p => requests.push(axios.get(`https://phimapi.com/v1/api/the-loai/${genreSlug}?page=${p}&limit=30`, { timeout: 3500 }).catch(() => null)));
+    } else {
+      [startP, startP + 1].forEach(p => requests.push(axios.get(`https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${p}&limit=30`, { timeout: 3500 }).catch(() => null)));
+    }
+
+    const responses = await Promise.all(requests);
+    let rawItems = [];
+    const seenSlugs = new Set();
+    const targetCountry = (id === 'stp_hoathinh') ? 'china' : 'japan';
+
+    responses.forEach(r => {
+      const list = r?.data?.data?.items || r?.data?.items || [];
+      list.forEach(i => {
+        if (i && i.slug && !seenSlugs.has(i.slug)) {
+          seenSlugs.add(i.slug);
+          rawItems.push(i);
+        }
+      });
+    });
+
+    let animeItems = rawItems.filter(i => isAnimationItem(i) && isCountryMatch(i, targetCountry));
+    let formatFiltered = animeItems.filter(i => {
+      const isMovie = isMovieAnimeFormat(i);
+      if (id === 'stp_anime_movie') return isMovie;
+      if (id === 'stp_anime' || id === 'stp_hoathinh') return !isMovie;
+      return true;
+    });
+
+    items = selectedGenre ? formatFiltered.filter(i => matchesGenreFilter(i, selectedGenre, GENRE_SLUG_MAP[selectedGenre] || selectedGenre)) : formatFiltered;
+  } else {
+    let fetchedItems = [];
+    if (selectedGenre && GENRE_SLUG_MAP[selectedGenre]) {
+      const genreSlug = GENRE_SLUG_MAP[selectedGenre];
+      const responses = await Promise.all([1, 2, 3].map(p => axios.get(`https://phimapi.com/v1/api/the-loai/${genreSlug}?page=${p}&limit=30`, { timeout: 3500 }).catch(() => null)));
+      responses.forEach(r => {
+        fetchedItems = fetchedItems.concat(r?.data?.data?.items || r?.data?.items || []);
+      });
+    } else {
+      const apiUrl = API_MAP[id] || `https://phimapi.com/danh-sach/phim-moi-cap-nhat`;
+      const { data } = await axios.get(`${apiUrl}?page=${pageToFetch}&limit=30`, { timeout: 4000 });
+      fetchedItems = data?.data?.items || data?.items || [];
+    }
+
+    const countryMap = { 'stp_vietnam': 'viet-nam', 'stp_hanquoc': 'han-quoc', 'stp_trungquoc': 'trung-quoc', 'stp_hongkong': 'hong-kong' };
+    const requiredCountry = countryMap[id];
+    const seenSlugs = new Set();
+
+    items = fetchedItems.filter(i => {
+      if (!i || !i.slug || seenSlugs.has(i.slug)) return false;
+      if (isAnimationItem(i)) return false;
+      if (requiredCountry) {
+        const cStr = JSON.stringify(i.country || '').toLowerCase();
+        if (!cStr.includes(requiredCountry.replace('-', ' ')) && !cStr.includes(requiredCountry)) return false;
+      }
+      if (selectedGenre && !matchesGenreFilter(i, selectedGenre, GENRE_SLUG_MAP[selectedGenre] || selectedGenre)) return false;
+      seenSlugs.add(i.slug);
+      return true;
+    });
+  }
+
+  const defaultType = (id === 'stp_chieurap' || id === 'stp_anime_movie' || id === 'stp_latest_movies') ? 'movie' : 'series';
+  let metas = items.map(item => createCatalogMeta(item, defaultType));
+
+  if (metas.length === 0 && !selectedGenre) {
+    const { data } = await axios.get(`https://phimapi.com/danh-sach/phim-moi-cap-nhat?page=1`, { timeout: 3500 }).catch(() => ({ data: {} }));
+    const backupList = data?.items || data?.data?.items || [];
+    metas = backupList.map(item => createCatalogMeta(item, defaultType));
+  }
+
+  return { metas };
+}
 
 app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (req, res) => {
   const { id, extra: extraStr } = req.params;
@@ -298,10 +270,9 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
   if (searchQuery) {
     try {
       const searchUrl = `https://phimapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(searchQuery)}&limit=50`;
-      const { data } = await axios.get(searchUrl, { timeout: 3500 });
-      let items = data?.data?.items || [];
-      const metas = items.map(item => createCatalogMeta(item, item.type === 'single' ? 'movie' : 'series'));
-      return res.json({ metas });
+      const { data } = await axios.get(searchUrl, { timeout: 5000 });
+      let items = data?.data?.items || data?.items || [];
+      return res.json({ metas: items.map(item => createCatalogMeta(item, item.type === 'single' ? 'movie' : 'series')) });
     } catch (e) {
       return res.json({ metas: [] });
     }
@@ -309,135 +280,24 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
 
   const cacheKey = `${id}_${skip}_${selectedGenre || 'all'}`;
   const cachedData = catalogResponseCache.get(cacheKey);
-  if (cachedData && (Date.now() - cachedData.time < CACHE_TTL)) {
-    return res.json(cachedData.payload);
+
+  // CƠ CHẾ TỐC ĐỘ BÀN THỜ: Nếu đã có Cache trong bộ nhớ -> Trả về NGAY LẬP TỨC (0ms)
+  if (cachedData) {
+    res.json(cachedData.payload);
+    // Nếu cache đã hơn 10 phút, tự cập nhật ngầm phía sau mà không bắt client chờ
+    if (Date.now() - cachedData.time > 10 * 60 * 1000) {
+      fetchCatalogData(id, skip, selectedGenre).then(payload => {
+        catalogResponseCache.set(cacheKey, { time: Date.now(), payload });
+      }).catch(() => {});
+    }
+    return;
   }
 
+  // Nếu chưa có cache thì tải mới
   try {
-    const pageToFetch = Math.floor(skip / 30) + 1;
-    let items = [];
-    const isAnimeCatalog = (id === 'stp_anime' || id === 'stp_anime_m' || id === 'stp_anime_movie' || id === 'stp_hoathinh');
-
-    if (isAnimeCatalog) {
-      // TRUY VẤN QUÉT RỘNG (DEEP SEARCH) TỪ 15 TRANG API
-      const startP = Math.max(1, (pageToFetch - 1) * 4 + 1);
-      const pages = Array.from({ length: 15 }, (_, i) => startP + i);
-
-      const requests = pages.map(p => axios.get(`https://phimapi.com/v1/api/danh-sach/hoat-hinh?page=${p}&limit=30`, { timeout: 3500 }).catch(() => null));
-
-      if (selectedGenre && GENRE_SLUG_MAP[selectedGenre]) {
-        const genreSlug = GENRE_SLUG_MAP[selectedGenre];
-        [1, 2, 3, 4, 5, 6].forEach(p => {
-          requests.push(axios.get(`https://phimapi.com/v1/api/the-loai/${genreSlug}?page=${p}&limit=30`, { timeout: 3500 }).catch(() => null));
-        });
-      }
-
-      const responses = await Promise.all(requests);
-      let rawItems = [];
-      const seenSlugs = new Set();
-      const targetCountry = (id === 'stp_hoathinh') ? 'china' : 'japan';
-
-      responses.forEach(r => {
-        const list = r?.data?.data?.items || r?.data?.items || [];
-        list.forEach(i => {
-          if (i && i.slug && !seenSlugs.has(i.slug)) {
-            seenSlugs.add(i.slug);
-            rawItems.push(i);
-          }
-        });
-      });
-
-      let animeItems = rawItems.filter(i => isAnimationItem(i) && isCountryMatch(i, targetCountry));
-      if (animeItems.length < 5) {
-        animeItems = rawItems.filter(i => isAnimationItem(i));
-      }
-
-      let formatFiltered = animeItems.filter(i => {
-        const isMovie = isMovieAnimeFormat(i);
-        if (id === 'stp_anime_movie') return isMovie;
-        if (id === 'stp_anime' || id === 'stp_hoathinh') return !isMovie;
-        return true;
-      });
-
-      if (formatFiltered.length === 0) {
-        formatFiltered = animeItems;
-      }
-
-      let finalFiltered = formatFiltered;
-      if (selectedGenre) {
-        const genreSlug = GENRE_SLUG_MAP[selectedGenre] || selectedGenre;
-        finalFiltered = formatFiltered.filter(i => matchesGenreFilter(i, selectedGenre, genreSlug));
-      }
-
-      // CƠ CHẾ SMART FILL: NẾU THỂ LOẠI KHÓ/NGÁCH VẪN ÍT PHIM, BỔ SUNG THÊM MOVIE ANIME ĐỂ DANH SÁCH LUÔN ĐẦY ĐẶN
-      if (finalFiltered.length < 12) {
-        formatFiltered.forEach(i => {
-          if (!finalFiltered.some(f => f.slug === i.slug)) {
-            finalFiltered.push(i);
-          }
-        });
-      }
-
-      items = finalFiltered;
-
-    } else {
-      // PHIM NGƯỜI ĐÓNG (LIVE-ACTION)
-      let fetchedItems = [];
-
-      if (selectedGenre && GENRE_SLUG_MAP[selectedGenre]) {
-        const genreSlug = GENRE_SLUG_MAP[selectedGenre];
-        const startP = Math.max(1, (pageToFetch - 1) * 3 + 1);
-        const pagesToFetch = Array.from({ length: 8 }, (_, i) => startP + i);
-
-        const responses = await Promise.all(
-          pagesToFetch.map(p =>
-            axios.get(`https://phimapi.com/v1/api/the-loai/${genreSlug}?page=${p}&limit=30`, { timeout: 3500 }).catch(() => null)
-          )
-        );
-
-        responses.forEach(r => {
-          const list = r?.data?.data?.items || r?.data?.items || [];
-          fetchedItems = fetchedItems.concat(list);
-        });
-      } else {
-        const apiUrl = API_MAP[id] || `https://phimapi.com/danh-sach/phim-moi-cap-nhat`;
-        const { data } = await axios.get(`${apiUrl}?page=${pageToFetch}&limit=30`, { timeout: 3000 });
-        fetchedItems = data?.data?.items || data?.items || [];
-      }
-
-      const countryMap = {
-        'stp_vietnam': 'viet-nam',
-        'stp_hanquoc': 'han-quoc',
-        'stp_trungquoc': 'trung-quoc',
-        'stp_hongkong': 'hong-kong'
-      };
-      const requiredCountry = countryMap[id];
-      const seenSlugs = new Set();
-
-      items = fetchedItems.filter(i => {
-        if (!i || !i.slug || seenSlugs.has(i.slug)) return false;
-        
-        // CHẶN HOÀN TOÀN ANIME KHỎI MỤC NGƯỜI ĐÓNG
-        if (isAnimationItem(i)) return false;
-
-        if (requiredCountry) {
-          const cStr = JSON.stringify(i.country || '').toLowerCase();
-          const target = requiredCountry.replace('-', ' ');
-          if (!cStr.includes(target) && !cStr.includes(requiredCountry)) return false;
-        }
-
-        seenSlugs.add(i.slug);
-        return true;
-      });
-    }
-
-    const defaultType = (id === 'stp_chieurap' || id === 'stp_anime_movie' || id === 'stp_latest_movies') ? 'movie' : 'series';
-    const metas = items.map(item => createCatalogMeta(item, defaultType));
-    const responsePayload = { metas };
-
-    catalogResponseCache.set(cacheKey, { time: Date.now(), payload: responsePayload });
-
-    return res.json(responsePayload);
+    const payload = await fetchCatalogData(id, skip, selectedGenre);
+    catalogResponseCache.set(cacheKey, { time: Date.now(), payload });
+    return res.json(payload);
   } catch (e) {
     return res.json({ metas: [] });
   }
@@ -445,14 +305,11 @@ app.get(['/catalog/:type/:id.json', '/catalog/:type/:id/:extra.json'], async (re
 
 app.get(['/meta/:type/:id.json', '/meta/:type/:id/:extra.json'], async (req, res) => {
   const { id, type } = req.params;
-
   if (id.startsWith('phimapi:')) {
     const slug = id.replace('phimapi:', '').split(':')[0];
-    let movie = null;
-    let epData = [];
-
+    let movie = null, epData = [];
     try {
-      const { data } = await axios.get(`https://phimapi.com/phim/${slug}`, { timeout: 3500 });
+      const { data } = await axios.get(`https://phimapi.com/phim/${slug}`, { timeout: 5000 });
       if (data?.movie) {
         movie = data.movie;
         epData = data?.episodes?.[0]?.server_data || [];
@@ -463,24 +320,7 @@ app.get(['/meta/:type/:id.json', '/meta/:type/:id/:extra.json'], async (req, res
 
     const p = movie.poster_url?.startsWith('http') ? movie.poster_url : `https://phimimg.com/${movie.poster_url}`;
     const b = movie.thumb_url?.startsWith('http') ? movie.thumb_url : `https://phimimg.com/${movie.thumb_url}`;
-    const thumbImg = b || p;
-
-    const genres = Array.isArray(movie.category) 
-      ? movie.category.map(c => c.name || c).filter(Boolean) 
-      : ['Phim Vietsub'];
-
-    const director = Array.isArray(movie.director) ? movie.director.filter(d => d && d !== 'Đang cập nhật') : [];
-    const cast = Array.isArray(movie.actor) ? movie.actor.filter(a => a && a !== 'Đang cập nhật') : [];
-
-    let cleanDescription = (movie.content || movie.description || '').replace(/<[^>]*>?/gm, '').trim();
-
-    const videos = epData.map((ep, idx) => ({
-      id: `phimapi:${slug}:${ep.slug}`,
-      title: ep.name || `Tập ${idx + 1}`,
-      thumbnail: thumbImg,
-      season: 1,
-      episode: idx + 1
-    }));
+    const genres = Array.isArray(movie.category) ? movie.category.map(c => c.name || c).filter(Boolean) : ['Phim Vietsub'];
 
     return res.json({
       meta: {
@@ -488,52 +328,55 @@ app.get(['/meta/:type/:id.json', '/meta/:type/:id/:extra.json'], async (req, res
         type: type,
         name: movie.name || 'Phim',
         poster: p,
-        background: thumbImg,
-        description: cleanDescription,
+        background: b || p,
+        description: (movie.content || movie.description || '').replace(/<[^>]*>?/gm, '').trim(),
         genres: genres,
-        director: director,
-        cast: cast,
+        director: Array.isArray(movie.director) ? movie.director.filter(d => d && d !== 'Đang cập nhật') : [],
+        cast: Array.isArray(movie.actor) ? movie.actor.filter(a => a && a !== 'Đang cập nhật') : [],
         releaseInfo: movie.year ? String(movie.year) : undefined,
-        videos: videos
+        videos: epData.map((ep, idx) => ({
+          id: `phimapi:${slug}:${ep.slug}`,
+          title: ep.name || `Tập ${idx + 1}`,
+          thumbnail: b || p,
+          season: 1,
+          episode: idx + 1
+        }))
       }
     });
   }
-
   res.json({ meta: null });
 });
 
 app.get(['/stream/:type/:id.json', '/stream/:type/:id/:extra.json'], async (req, res) => {
   const { id } = req.params;
-
   if (id.startsWith('phimapi:')) {
     const parts = id.split(':');
-    const slug = parts[1];
-    const epSlug = parts[2];
-    
+    const slug = parts[1], epSlug = parts[2];
     let streams = [];
-
     try {
-      const { data } = await axios.get(`https://phimapi.com/phim/${slug}`, { timeout: 3500 });
-      const servers = data?.episodes || [];
-      servers.forEach((srv, sIdx) => {
-        const episodes = srv.server_data || [];
-        const ep = episodes.find(e => e.slug === epSlug) || episodes[0];
+      const { data } = await axios.get(`https://phimapi.com/phim/${slug}`, { timeout: 5000 });
+      (data?.episodes || []).forEach((srv, sIdx) => {
+        const ep = (srv.server_data || []).find(e => e.slug === epSlug) || srv.server_data?.[0];
         if (ep && ep.link_m3u8) {
-          streams.push({
-            name: `Server FHD [${srv.server_name || `Nguồn ${sIdx + 1}`}]`,
-            title: ep.name || 'Phát chính',
-            url: ep.link_m3u8
-          });
+          streams.push({ name: `Server FHD [${srv.server_name || `Nguồn ${sIdx + 1}`}]`, title: ep.name || 'Phát chính', url: ep.link_m3u8 });
         }
       });
     } catch (e) {}
-
     return res.json({ streams });
   }
-
   res.json({ streams: [] });
 });
 
 const PORT = process.env.PORT || 7000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT} (Nuvio Fast v21.1.39)`));
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT} (SieuTamPhim Instant v21.1.43)`);
+  // TỰ ĐỘNG TẢI TRƯỚC CACHE CHO 3 MỤC QUỐC GIA KHI KHỞI ĐỘNG SERVER
+  setTimeout(() => {
+    ['stp_trungquoc', 'stp_hanquoc', 'stp_hongkong'].forEach(id => {
+      fetchCatalogData(id, 0).then(payload => {
+        catalogResponseCache.set(`${id}_0_all`, { time: Date.now(), payload });
+      }).catch(() => {});
+    });
+  }, 2000);
+});
     
